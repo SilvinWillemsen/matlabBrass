@@ -20,9 +20,15 @@ h = 1/N;            % Recalculate gridspacing from number of points
 lambdaSq = (c * k / h)^2
 
 % Set cross-sectional geometry
-S = ones(N,1);
-SRange = floor(N/3):floor(2*N/3);
-S(SRange) = S(SRange) - hann(length(SRange)) * 0.9;
+% S = ones(N,1);
+% SRange = floor(N/3):floor(2*N/3);
+% S(SRange) = S(SRange) - hann(length(SRange)) * 0.9;
+
+mp = linspace(0.2, 0.2, floor(N/10));               % mouthpiece
+m2t = linspace(0.2, 0.1, floor(N/20));              % mouthpiece to tube
+t = linspace(0.1, 0.1, floor(3 * N / 4));           % tube
+b = linspace(0.1, 1, floor(N - length([mp, m2t, t]))); % bell
+S = [mp, m2t, t, b]';
 
 % Calculate approximations to the geometry
 SHalf = (S(1:N-1) + S(2:N)) * 0.5;            % mu_{x+}
@@ -62,7 +68,7 @@ plot(S, 'k');
 hold on;
 plot(-S, 'k');
 xlim([1 N]);
-ylim([-1.1 1.1]);
+ylim([-max(S) max(S)] * 1.1);
 title("Pressure potential")
 subplot(2,1,2)
 title("Normalised energy (should be within machine precision)") 

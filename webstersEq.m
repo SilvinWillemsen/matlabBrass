@@ -8,7 +8,7 @@ close all;
 % drawing variables
 makeVideo = false;
 drawThings = true;
-drawSpeed = 500;
+drawSpeed = 5;
 
 impulse = true;
 
@@ -95,18 +95,17 @@ for n = 1:lengthSound
     % calculate scheme
     uNext(range) = (2 * u(range) - uPrev(range) + lambdaSq * ((SHalf(range) ./ Sbar(range-1)) .* u(range+1) + (SHalf(range - 1) ./ Sbar(range - 1)) .* u(range-1) - 2 * u(range))...
         + s0 * k ./ Sbar(range - 1) .* uPrev(range)) ./ (1 + s0 * k ./ Sbar(range-1));
-%     uNext(1) = (2 * lambdaSq * u(2) + 2 * (1 - lambdaSq) * u(1) - uPrev(1) + 2 * h * SHalf(1) / (Sbar(1)) * in(n) + s0 * k / Sbar(1) * uPrev(1)) / (1 + s0 * k / Sbar(1));
+    uNext(1) = (2 * lambdaSq * u(2) + 2 * (1 - lambdaSq) * u(1) - uPrev(1) + 2 * h * SHalf(1) / (Sbar(1)) * in(n) + s0 * k / Sbar(1) * uPrev(1)) / (1 + s0 * k / Sbar(1));
     % set output from output position
     out(n) = uNext(outputPos);
     
     % energies
     kinEnergy(n) = h * 1/2 * sum(Sbar(energyRange - 1) .* (1/k * (u(energyRange) - uPrev(energyRange))).^2);
     potEnergy(n) = h * c^2 / 2 * 1/h^2 * (sum(SHalf(energyRange) .* (u(energyRange+1) - u(energyRange)) .* (uPrev(energyRange+1) - uPrev(energyRange))));
-    boundaryEnergy(n) = c^2 / (4 * k * h) * (uNext(1) - uPrev(1)) * SHalf(1) * (u(1) - u(2));
+    
     if range(1) == 2
-%         kinEnergy(n) = kinEnergy(n) + h * 1/2 * sum(Sbar(1) * (1/k * (u(1) - uPrev(1)))^2);
+        kinEnergy(n) = kinEnergy(n) + h * 1/4 * sum(Sbar(1) * (1/k * (u(1) - uPrev(1)))^2);
         potEnergy(n) = potEnergy(n) + h * c^2 / 2 * 1/h^2 * (SHalf(1) .* (u(2) - u(1)) .* (uPrev(2) - uPrev(1)));
-%         potEnergy(n) = potEnergy(n) +  h * c^2 / 2 * 1/h^2 * (SHalf(1) .* (u(1) - u(2)) .* (uPrev(1) - uPrev(2)));
     end
     
     totEnergy(n) = kinEnergy(n) + potEnergy(n) + boundaryEnergy(n);
@@ -133,7 +132,11 @@ for n = 1:lengthSound
         if n > 10
             plot(totEnergy(10:n) / totEnergy(10) - 1);
         end
-        title("Normalised energy (should be within machine precision)") 
+%         hold off;
+%         plot(kinEnergy(1:n) + potEnergy(1:n))
+%         hold on;
+%         plot(2 * boundaryEnergy(1:n))
+    title("Normalised energy (should be within machine precision)") 
         drawnow;
         
         if makeVideo

@@ -8,7 +8,9 @@ close all;
 % drawing variables
 makeVideo = false;
 drawThings = true;
-drawSpeed = 5;
+drawSpeed = 500;
+centered = true;
+dynamic = false;
 
 impulse = true;
 
@@ -20,17 +22,17 @@ c = 343;            % Wave speed (m/s)
 h = c * k;          % Grid spacing (m)
 L = 1;
 s0 = 0;
-N = floor(L * 0.95/h);  % Number of points (-)
+N = floor(L/h);  % Number of points (-)
 h = L/N;                 % Recalculate gridspacing from number of points
 lambdaSq = (c * k / h)^2
 
 % Set cross-sectional geometry
-[S, SHalf, Sbar] = setTube (0, N, lengthSound);
+[S, SHalf, SBar] = setTube (0, N, lengthSound, dynamic);
 
 if ~impulse  
     % input signal
     t = (0:lengthSound - 1) / fs;
-    freq = 272;
+    freq = 446/4;
     in = cos(2 * pi * freq * t) - 0.5;
     in = (in + abs(in)) / 2; % subplus
 
@@ -90,22 +92,30 @@ if makeVideo
 end
 
 for n = 1:lengthSound
-    [S, SHalf, Sbar] = setTube(n, N, lengthSound);
+    [S, SHalf, SBar] = setTube(n, N, lengthSound, dynamic);
     
     % calculate scheme
-    uNext(range) = (2 * u(range) - uPrev(range) + lambdaSq * ((SHalf(range) ./ Sbar(range-1)) .* u(range+1) + (SHalf(range - 1) ./ Sbar(range - 1)) .* u(range-1) - 2 * u(range))...
-        + s0 * k ./ Sbar(range - 1) .* uPrev(range)) ./ (1 + s0 * k ./ Sbar(range-1));
-    uNext(1) = (2 * lambdaSq * u(2) + 2 * (1 - lambdaSq) * u(1) - uPrev(1) + 2 * h * SHalf(1) / (Sbar(1)) * in(n) + s0 * k / Sbar(1) * uPrev(1)) / (1 + s0 * k / Sbar(1));
+    uNext(range) = (2 * u(range) - uPrev(range) + lambdaSq * ((SHalf(range) ./ SBar(range-1)) .* u(range+1) + (SHalf(range - 1) ./ SBar(range - 1)) .* u(range-1) - 2 * u(range))...
+        + s0 * k ./ SBar(range - 1) .* uPrev(range)) ./ (1 + s0 * k ./ SBar(range-1));
+    if centered
+        uNext(1) = (2 * lambdaSq * u(2) + 2 * (1 - lambdaSq) * u(1) - uPrev(1) + 2 * h * lambdaSq * SHalf(1) / (SBar(1)) * in(n) + s0 * k / SBar(1) * uPrev(1)) / (1 + s0 * k / SBar(1));
+    else
+        uNext(1) = (2 * (1 - lambdaSq) * u(1) - uPrev(1) + 2 * h * lambdaSq * (SHalf(1) / SBar(1)) * in(n) + lambdaSq * SHalf(2) / SBar(1) * u(2) + lambdaSq * (SHalf(1) / SBar(1)) * u(1)) / (1 + s0 * k / SBar(1));
+    end
     % set output from output position
     out(n) = uNext(outputPos);
     
     % energies
-    kinEnergy(n) = h * 1/2 * sum(Sbar(energyRange - 1) .* (1/k * (u(energyRange) - uPrev(energyRange))).^2);
+    kinEnergy(n) = h * 1/2 * sum(SBar(energyRange - 1) .* (1/k * (u(energyRange) - uPrev(energyRange))).^2);
     potEnergy(n) = h * c^2 / 2 * 1/h^2 * (sum(SHalf(energyRange) .* (u(energyRange+1) - u(energyRange)) .* (uPrev(energyRange+1) - uPrev(energyRange))));
     
     if range(1) == 2
-        kinEnergy(n) = kinEnergy(n) + h * 1/4 * sum(Sbar(1) * (1/k * (u(1) - uPrev(1)))^2);
-        potEnergy(n) = potEnergy(n) + h * c^2 / 2 * 1/h^2 * (SHalf(1) .* (u(2) - u(1)) .* (uPrev(2) - uPrev(1)));
+        if centered
+            kinEnergy(n) = kinEnergy(n) + h * 1/4 * sum(SBar(1) * (1/k * (u(1) - uPrev(1)))^2);
+        else
+            kinEnergy(n) = kinEnergy(n) + h * 1/2 * sum(SBar(1) * (1/k * (u(1) - uPrev(1)))^2);
+        end
+            potEnergy(n) = potEnergy(n) + h * c^2 / 2 * 1/h^2 * (SHalf(1) .* (u(2) - u(1)) .* (uPrev(2) - uPrev(1)));
     end
     
     totEnergy(n) = kinEnergy(n) + potEnergy(n) + boundaryEnergy(n);
@@ -152,22 +162,27 @@ end
 
 plot(out)
 
-function [S, SHalf, Sbar] = setTube(n, N, lengthSound)
+function [S, SHalf, SBar] = setTube(n, N, lengthSound, dynamic)
     mp = linspace(0.2, 0.2, floor(N/20));               % mouthpiece
     m2t = linspace(0.2, 0.1, floor(N/20));              % mouthpiece to tube
     tube = linspace(0.1, 0.1, floor(3 * N / 4));        % tube
-    bulgeWidth = floor(length(tube) / 3);
-    start = length(tube) * (0.25 + 0.5 * n / lengthSound) - bulgeWidth * 0.5;
-    flooredStart = floor(start);
-    raisedCos = 1 - (cos(2 * pi * ([1:bulgeWidth] - (start-floor(start))) / bulgeWidth) + 1) * 0.5;
-    tube(flooredStart:flooredStart+bulgeWidth-1) = tube(flooredStart:flooredStart+bulgeWidth-1) + raisedCos;
-    
+    if dynamic
+        bulgeWidth = floor(length(tube) / 3);
+        start = length(tube) * (0.25 + 0.5 * n / lengthSound) - bulgeWidth * 0.5;
+        flooredStart = floor(start);
+        raisedCos = 1 - (cos(2 * pi * ([1:bulgeWidth] - (start-floor(start))) / bulgeWidth) + 1) * 0.5;
+        tube(flooredStart:flooredStart+bulgeWidth-1) = tube(flooredStart:flooredStart+bulgeWidth-1) + raisedCos;
+    end
     pointsLeft = N - length([mp, m2t, tube]);
-    alpha = 0.5 * n / lengthSound - 0.25;
+%     if dynamic
+%         alpha = 0.5 * n / lengthSound - 0.25;
+%     else
+        alpha = 0.15;
+%     end
     b = tube(end) * exp(alpha * (0:pointsLeft-1));      % bell
     S = [mp, m2t, tube, b]';
-    S = ones(N, 1) * 1;
+%     S = ones(N, 1) * 1;
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;            % mu_{x+}
-    Sbar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5; % mu_{x-}S_{l+1/2}
+    SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5; % mu_{x-}S_{l+1/2}
 end

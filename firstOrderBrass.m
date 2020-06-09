@@ -7,7 +7,7 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 1;
+drawSpeed = 10;
 centered = true;
 
 impulse = true;
@@ -25,6 +25,8 @@ N = floor(L/h);             % Number of points (-)
 h = L/N;                    % Recalculate gridspacing from number of points
 
 lambda = c * k / h
+
+a1 = 1; % loss
 % Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
 
@@ -59,15 +61,11 @@ outputPos = floor(1/5 * N);
 % Set ranges
 pRange = 2:N-1;          % range without boundaries
 vRange = 1:N-1;
-potEnergyRange = 1:N-1; % range for the potential energy
-
-epsilonL = SHalf(1)/SBar(1);
-epsilonR = SHalf(end)/SBar(N);
 
 scaling = ones(N,1);
 if centered
-    scaling(1) = epsilonL / 2;
-    scaling(N) = epsilonR / 2;
+    scaling(1) = 1 / 2;
+    scaling(N) = 1 / 2;
 end
 
 SNph = 2 * SBar(N) - SHalf(end);
@@ -84,6 +82,9 @@ for n = 1:lengthSound
     % calculate schemes
     vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
+    
+%     vNext(end) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
+    pNext(N) = p(N) - rho * c * lambda ./ SBar(N) .* (-2 * SHalf(end) .* vNext(end));
     
     % set output from output position
     out(n) = p(outputPos);

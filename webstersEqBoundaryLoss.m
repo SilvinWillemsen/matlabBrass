@@ -7,16 +7,16 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 50;
+drawSpeed = 1;
 centered = true;
 
-impulse = false;
+impulse = true;
 
 fs = 44100;         % Sample rate (Hz)
 k = 1/fs;           % Time step (s)
 lengthSound = fs*5; % Duration (s)
 
-c = 343;            % Wave speed (m/s)
+c = 441;            % Wave speed (m/s)
 h = c * k;          % Grid spacing (m)
 L = 1;              % Length
 
@@ -29,8 +29,8 @@ lambdaSq = (c * k / h)^2    % Courant number
 
 a1 = 1 / (2 * (0.8216)^2 * c);              % loss term
 a2 = L / (0.8216 * sqrt(S(1)*S(N)/pi));     % inertia coefficient
-% a1 = 0;
-% a2 = 0;
+a1 = 0;
+a2 = 0;
 
 %Initialise states
 uNext = zeros(N, 1);
@@ -40,7 +40,7 @@ amp = 1e-5;
 if ~impulse  
     % input signal
     t = (0:lengthSound - 1) / fs;
-    freq = 446/4;
+    freq = 446/2;
     in = cos(2 * pi * freq * t) - 0.5;
     in = (in + abs(in)) / 2; % subplus
     in = in - sum(in) / length(in);
@@ -191,7 +191,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);        % tube
 
     S = [mp, m2t, tube, b]';                        % True geometry
-
+%     S = 0.001 * ones(length(S), 1);
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;           	% mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

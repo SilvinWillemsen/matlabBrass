@@ -7,10 +7,10 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 100;
+drawSpeed = 10000;
 centered = true;
 
-impulse = true;
+input = "lip";  % impulse, sine, lip
 
 fs = 44100;         % Sample rate (Hz)
 k = 1/fs;           % Time step (s)
@@ -37,7 +37,7 @@ uNext = zeros(N, 1);
 u = zeros(N, 1);
 
 amp = 1e-5;
-if ~impulse  
+if input == "sine"  
     % input signal
     t = (0:lengthSound - 1) / fs;
     freq = 446/2;
@@ -49,10 +49,24 @@ if ~impulse
     env = [linspace(0, 1, rampLength), ones(1, lengthSound - rampLength)];
     in = in .* env;
     in = in - sum(in) / length(in);
-else
+elseif input == "impulse"
     in = zeros(lengthSound, 1);
     u(floor(N / 3) - 5 : floor(N / 3) + 5) = amp*hann(11);
+elseif input == "lip"
+    in = zeros(lengthSound, 1);
+    Pm = 1;
+    M = 0.001;
+    sig = 100;
+    R = sig/M;
+    K = 10000;
+    omegaSq = K/M;
+    z = -0.002;
+    zPrev = -0.002;
+    w = h; % effective lip width
+    H0 = 0.001;
+    rhoAir = 1;
 end
+
 uPrev = u;
 
 % output
@@ -105,14 +119,15 @@ for n = 1:lengthSound
     % calculate scheme
     uNext(range) = 2 * (1 - lambdaSq) * u(range) - uPrev(range) + lambdaSq * ((SHalf(range) ./ SBar(range)) .* u(range+1) + (SHalf(range - 1) ./ SBar(range)) .* u(range-1));
     
-    if centered
-        uNext(1) = 2 * (1 - lambdaSq) * u(1) - uPrev(1) + lambdaSq * 2 * u(2) + 2 * h * lambdaSq * SOnemh / SBar(1) * in(n);
-        uNext(N) = (2 * (1 - lambdaSq) * u(N) - uPrev(N) + lambdaSq * 2 * u(N-1) + h * lambdaSq * SNph / SBar(N) * (a1/k - a2) * uPrev(N)) / (1 + lambdaSq * SNph / SBar(N) * h * (a1/k + a2));
-    else
-        uNext(1) = 2 * (1 - lambdaSq) * u(1) - uPrev(1) + lambdaSq * SHalf(1) / SBar(1) * u(2) + lambdaSq * SOnemh / SBar(1) * u(1);
-        uNext(N) = (2 * (1 - lambdaSq) * u(N) - uPrev(N) + lambdaSq * SNph * h / (2 * SBar(N)) * (a1 / k - a2) * uPrev(N) + lambdaSq * SNph / SBar(N) * u(N) + lambdaSq * SHalf(end) / SBar(N) * u(N-1)) / (1 + lambdaSq * SNph * h * (a1 / k + a2) / (2*SBar(N)));
-    end
-
+    uNext(1) = 2 * (1 - lambdaSq) * u(1) - uPrev(1) + lambdaSq * 2 * u(2) + 2 * h * lambdaSq * SOnemh / SBar(1) * in(n);
+    uNext(N) = (2 * (1 - lambdaSq) * u(N) - uPrev(N) + lambdaSq * 2 * u(N-1) + h * lambdaSq * SNph / SBar(N) * (a1/k - a2) * uPrev(N)) / (1 + lambdaSq * SNph / SBar(N) * h * (a1/k + a2));
+        
+    % lipreed
+    deltaP = Pm - rhoAir/(2*k) * (uNext(1) - uPrev(1));
+    Ub(n) = w * subplus(z+H0) * sign(deltaP) * sqrt(2 * abs(deltaP) / rhoAir);
+    Ur(n) S(1)
+    zNext(n) = (2 * z - zPrev - omegaSq * k^2 * z + R * k^2 / 2  * zPrev) / (1 + R * k^2 / 2);
+    
     % set output from output position
     out(n) = uNext(outputPos);
     
@@ -147,7 +162,7 @@ for n = 1:lengthSound
     if drawThings && mod (n, drawSpeed) == 0
         
         % plot state
-        subplot(3,1,1)
+        subplot(2,1,1)
         cla
         hold on;
         plotPressurePotential (uNext * 1/amp, sqrt(S) * amp);
@@ -157,28 +172,33 @@ for n = 1:lengthSound
         xlim([1 N]);
         ylim([-max(sqrt(S)) max(sqrt(S))] * amp * 1.1);
         title("Pressure potential. n = " + num2str(n))
-
+       
+        subplot(2,1,2)
+        plot(zNext(1:n))
         % plot total energy
-        subplot(3,1,2)
-        if n > 10
-            if impulse && a1 == 0
-                plot(totEnergy(10:n) / totEnergy(10) - 1);
-                title("Normalised energy (should be within machine precision)") 
-            else
-                plot(totEnergy(10:n))
-                title("Total energy") 
-            end
-        end
-        
-        subplot(3,1,3)
-        plot(rOCtotEnergy(1:n))
-        title("Rate-of-change of energy (should be very close to 0)");
+%         subplot(3,1,2)
+%         if n > 10
+%             if input == "impulse" && a1 == 0
+%                 plot(totEnergy(10:n) / totEnergy(10) - 1);
+%                 title("Normalised energy (should be within machine precision)") 
+%             else
+%                 plot(totEnergy(10:n))
+%                 title("Total energy") 
+%             end
+%         end
+%         
+%         subplot(3,1,3)
+%         plot(rOCtotEnergy(1:n))
+%         title("Rate-of-change of energy (should be very close to 0)");
         drawnow;
     end
    
     % update states
     uPrev = u;
     u = uNext;
+    
+    zPrev = z;
+    z = zNext(n);
 end   
 plot(out)
 

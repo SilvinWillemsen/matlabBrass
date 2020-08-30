@@ -1,6 +1,6 @@
 clear all;
 close all;
-drawSpeed = 10;
+drawSpeed = 1000;
 
 fs = 44100;
 k = 1 / fs;
@@ -30,6 +30,10 @@ h = 343 * k;
 
 Pm = 0;
 p = 0;
+
+qHReed = zeros(lengthSound, 1);
+pHReed = zeros(lengthSound, 1);
+
 for n = 1:lengthSound
     if y > 0
         theta = 0;
@@ -60,11 +64,13 @@ for n = 1:lengthSound
     hReed(n) = mu / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
     rOChReed(n) = mu * (1/(2*k) * (yNext(n) - yPrev) * 1/k^2 * (yNext(n) - 2 * y + yPrev) ...
          + omega0^2 * 1/(2*k) * (yNext(n) - yPrev) * 1/2 * (yNext(n) + yPrev));
-    qReed(n) = mu * sig * (1/(2*k) * (yNext(n) - yPrev))^2;% + w * subplus(y + H0) * (sqrt(2 / rho) * abs(deltaP)^(3/2));
-    qHReed(n) = k * sum (qReed);
+    qReed(n) = mu * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + w * subplus(y + H0) * (sqrt(2 / rho) * abs(deltaP)^(3/2));
+    idx = n - (1 * (n~=1));
+    qHReed(n) = qHReed(idx) + k * qReed(n);
     pReed(n) = -(Ub + Ur) * Pm;
-    
-    totEnergy(n) = hReed(n) + k * sum(qReed);
+    pHReed(n) = pHReed(idx) + k * pReed(n);
+
+    totEnergy(n) = hReed(n) + qHReed(idx) + pHReed(idx);
     totROCEnergy(n) = rOChReed(n) + qReed(n);
     if mod(n, drawSpeed) == 0
         subplot(311)
@@ -73,10 +79,10 @@ for n = 1:lengthSound
         hold off;
         plot(hReed(1:n) - hReed(1));
         hold on;
-        plot(qHReed(1:n))
+        plot(qHReed(2:n))
 %         plot(qReed(1:n))
         subplot(313)
-        plot(totEnergy(1:n))
+        plot(totEnergy(2:n) / totEnergy(2) - 1)
         drawnow;
     end
     

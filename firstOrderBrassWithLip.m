@@ -7,7 +7,7 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 1000;
+drawSpeed = 10000;
 centered = true;
 
 impulse = false;
@@ -33,8 +33,8 @@ a1 = 1; % loss
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 650;                   % fundamental freq lips
-mu = 5.37e-5;                  % mass lips
+f0 = 200;                   % fundamental freq lips
+M = 5.37e-5;                  % mass lips
 omega0 = 2 * pi * f0;  % angular freq
 
 %% viscothermal effects
@@ -56,7 +56,7 @@ p = zeros(N, 1);
 vNext = zeros(N-1, 1);
 v = zeros(N-1, 1);
 
-amp = 5;
+amp = 0;
 % if ~impulse  
 %     % input signal
 %     t = (0:lengthSound - 1) / fs;
@@ -113,28 +113,27 @@ for n = 1:lengthSound
         theta = 1;
     end
     
-    ramp = 10000;
-    if n < ramp
-        Pm = amp * n / ramp;
-    else
+%     ramp = 10000;
+%     if n < ramp
+%         Pm = amp * n / ramp;
+%     else
         Pm = amp;
-    end
+%     end
     
-    
-    a1 = 2 / k + sig + k * omega0^2;
-    a2 = Sr / mu;
+    a1 = 2 / k + omega0^2 * k + sig;
+    a2 = Sr / M;
     a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev;
     b1 = SHalf(1) * vNext(1) + h * SBar(1) / (rho * c^2 * k) * (Pm  - p(1));
     b2 = h * SBar(1) / (rho * c^2 * k);
     c1 = w * subplus(y + H0) * sqrt(2 / rho);
-    c2 = b2 + Sr * a2 / a1;
-    c3 = b1 - Sr * a3 / a1;
+    c2 = b2 + a2 * Sr / a1;
+    c3 = b1 - a3 * Sr / a1;
     
     deltaP = sign(c3) * ((-c1 + sqrt(c1^2 + 4 * c2 * abs(c3)))/ (2 * c2))^2;
     
-    alpha = 4 / (2 + k * sig + k^2 * omega0^2);
-    beta = (k * sig - 2 - k^2 * omega0^2) / (2 + k * sig + k^2 * omega0^2);
-    epsilon = 2 * k^2 * Sr / (mu * (2 + k*sig + k^2 * omega0^2));
+    alpha = 4 / (2 + omega0^2 * k^2 + sig * k);
+    beta = (sig * k - 2 - omega0^2 * k^2) / (2 + omega0^2 * k^2 + sig * k);
+    epsilon = 2 * Sr * k^2 / (M * (2 + omega0^2 * k^2 + sig * k));
     
     yNext(n) = alpha * y + beta * yPrev + epsilon * deltaP;
     
@@ -149,7 +148,6 @@ for n = 1:lengthSound
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
     pNext(1) = p(1) - rho * c * lambda ./ SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
 
-%     vNext(end) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
     pNext(N) = p(N) - rho * c * lambda ./ SBar(N) .* (-2 * SHalf(end) .* vNext(end));
     
     % set output from output position
@@ -159,16 +157,14 @@ for n = 1:lengthSound
     kinEnergy(n) = 1/(2 * rho * c^2) * h * sum(SBar .* scaling .* p.^2);
     potEnergy(n) = rho / 2 * h * sum(SHalf .* vNext .* v);
     
-    hReed(n) = mu / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
-    rOChReed(n) = mu * (1/(2*k) * (yNext(n) - yPrev) * 1/k^2 * (yNext(n) - 2 * y + yPrev) ...
-         + omega0^2 * 1/(2*k) * (yNext(n) - yPrev) * 1/2 * (yNext(n) + yPrev));
-    qReed(n) = mu * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + w * subplus(y + H0) * (sqrt(2 / rho) * abs(deltaP)^(3/2));
+    hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
+    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + w * subplus(y + H0) * sqrt(2 / rho) * abs(deltaP)^(3/2);
     idx = n - (1 * (n~=1));
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
     
-    totEnergy(n) = kinEnergy(n) + potEnergy(n) + hReed(n) + qHReed(n) + pHReed(n);
+    totEnergy(n) = kinEnergy(n) + potEnergy(n) + hReed(n) + qHReed(idx) + pHReed(idx);
 
     % draw things
     if drawThings && mod (n, drawSpeed) == 0
@@ -198,7 +194,7 @@ for n = 1:lengthSound
         plot(yNext(1:n));
         
         subplot(4,1,4)
-        plot(totEnergy(1:n));
+        plot(totEnergy(2:n) / totEnergy(2) - 1);
         title("Normalised total energy (should be 0 within machine precision)")
         
         drawnow;
@@ -211,7 +207,7 @@ for n = 1:lengthSound
     yPrev = y;
     y = yNext(n);
 end   
-plot(out)
+plot(yNext)
 
 function [S, SHalf, SBar] = setTube(N)
     mp = linspace(0.0005, 0.0005, floor(N/20));       % mouthpiece
@@ -222,7 +218,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);        % tube
 
     S = [mp, m2t, tube, b]';                        % True geometry
-%     S = 0.005 * ones(N,1);
+    S = 5000 * ones(N,1);
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;           	% mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

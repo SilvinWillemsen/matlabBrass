@@ -6,15 +6,15 @@ clear all;
 close all;
 
 % drawing variables
-drawThings = false;
-drawSpeed = 100000;
+drawThings = true;
+drawSpeed = 500;
 centered = true;
 
-impulse = false;
+impulse = true;
 
 fs = 44100;         % Sample rate (Hz)
 k = 1/fs;           % Time step (s)
-lengthSound = fs * 5; % Duration (s)
+lengthSound = fs * 2; % Duration (s)
 
 %% Tube variables
 c = 343;            % Wave speed (m/s)
@@ -27,13 +27,13 @@ h = L/N;                    % Recalculate gridspacing from number of points
 
 lambda = c * k / h
 
-a1 = 1; % loss
+% a1 = 1; % loss
 
 % Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 214;                   % fundamental freq lips
+f0 = 200 / (2 * pi);                   % fundamental freq lips
 M = 5.37e-5;                  % mass lips
 omega0Init = 2 * pi * f0;  % angular freq
 
@@ -41,10 +41,10 @@ omega0Init = 2 * pi * f0;  % angular freq
 T = 26.85;
 [c, rho, eta, nu, gamma] = calcThermoDynConstants(T);
   
-sig = 0.01;
+sigInit = 5;
 H0 = 2.9e-4;
 
-y = H0;
+y = 0;
 yPrev = y;
 
 w = 1e-2;
@@ -56,7 +56,7 @@ p = zeros(N, 1);
 vNext = zeros(N-1, 1);
 v = zeros(N-1, 1);
 
-amp = 100;
+amp = 3000;
 % if ~impulse  
 %     % input signal
 %     t = (0:lengthSound - 1) / fs;
@@ -71,7 +71,7 @@ amp = 100;
 %     in = in - sum(in) / length(in);
 % else
     in = zeros(lengthSound, 1);
-%     p(floor(N / 3) - 5 : floor(N / 3) + 5) = amp*hann(11);
+%     p(floor(N / 3) - 5 : floor(N / 3) + 5) = hann(11);
 % end
 
 % output
@@ -97,41 +97,46 @@ potEnergy = zeros (lengthSound, 1);
 totEnergy = zeros (lengthSound, 1);
 qHReed = zeros (lengthSound, 1);
 pHReed = zeros (lengthSound, 1);
+qHReed = zeros (lengthSound, 1);
+pHReed = zeros (lengthSound, 1);
+
 for n = 1:lengthSound
-    if y > 0
+    % if lipstate + equilibrium is below 0, change heaviside variable to 1
+    if (y + H0) > 0
         theta = 0;
     else
         theta = 1;
     end
-%     theta = 0;
-    omega0Init = 2 * pi * f0 * (2 + 0.01 * sin(20 * pi * n / lengthSound));
+    theta = 0;
+    omega0Init = 2 * pi * f0;% * (1 + 0.01 * sin(15 * pi * n / lengthSound));
     omega0 = omega0Init * sqrt(1 + 3 * theta);
+
+    sig = sigInit * (1 + 4 * theta);
 %     omega0Save(n) = omega0;
     %% Calculate velocities before lip model
     vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
 
     %% Lip model
     
-    % if lipstate is below 0, change heaviside variable to 1
 %     if y > 0
 %         theta = 0;
 %     else
 %         theta = 1;
 %     end
-    
-    ramp = 100;
-    if n < ramp
-        Pm = amp * n / ramp;
-    else
+%     
+%     ramp = 1000;
+%     if n < ramp
+%         Pm = amp * n / ramp;
+%     else
         Pm = amp;
-    end
-    
+%     end
+%     
     a1 = 2 / k + omega0^2 * k + sig;
     a2 = Sr / M;
-    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev + omega0^2 * H0;
+    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev;
     b1 = SHalf(1) * vNext(1) + h * SBar(1) / (rho * c^2 * k) * (Pm  - p(1));
     b2 = h * SBar(1) / (rho * c^2 * k);
-    c1 = w * subplus(y + H0) * sqrt(2 / rho);
+    c1 = w * subplus(y) * sqrt(2 / rho);
     c2 = b2 + a2 * Sr / a1;
     c3 = b1 - a3 * Sr / a1;
     
@@ -140,9 +145,11 @@ for n = 1:lengthSound
     alpha = 4 / (2 + omega0^2 * k^2 + sig * k);
     beta = (sig * k - 2 - omega0^2 * k^2) / (2 + omega0^2 * k^2 + sig * k);
     epsilon = 2 * Sr * k^2 / (M * (2 + omega0^2 * k^2 + sig * k));
-
-    yNext(n) = alpha * y + beta * yPrev + epsilon * deltaP + 2 * omega0^2 * k^2 * H0 / (2 + omega0^2 * k^2 + sig * k);
-    
+% epsilon = 0;
+    yNext(n) = alpha * y + beta * yPrev + epsilon * deltaP;
+%     if n < 100
+%         yNext(n) = 0;
+%     end
     Ub = w * subplus(y + H0) * sign(deltaP) * sqrt(2 * abs(deltaP)/rho);
     Ur = Sr * 1/(2*k) * (yNext(n) - yPrev);
     UbSave(n) = Ub;
@@ -162,16 +169,18 @@ for n = 1:lengthSound
     %% Energies
     kinEnergy(n) = 1/(2 * rho * c^2) * h * sum(SBar .* scaling .* p.^2);
     potEnergy(n) = rho / 2 * h * sum(SHalf .* vNext .* v);
-    
-    hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + H0^2 * omega0^2 * (y^2 + yPrev^2) / 2);
-    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP; % + w * subplus(y + H0) * sqrt(2 / rho) * abs(deltaP)^(3/2);
+    hTube(n) = kinEnergy(n) + potEnergy(n);
+    hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
+    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + w * subplus(y + H0) * sqrt(2 / rho) * abs(deltaP)^(3/2);
     idx = n - (1 * (n~=1));
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
     
-    totEnergy(n) = kinEnergy(n) + potEnergy(n) + hReed(n) + qHReed(idx) + pHReed(idx);
-
+    totEnergy(n) = hTube(n) + hReed(n) + qHReed(idx) + pHReed(idx);
+    if n>2
+        scaledTotEnergy(n) = (totEnergy(n) - hTube(2) - hReed(2)) / (hTube(2) + hReed(2));
+    end
     % draw things
     if drawThings && mod (n, drawSpeed) == 0
         subplot(4,1,1)
@@ -182,7 +191,7 @@ for n = 1:lengthSound
 %         plot(sqrt(S), 'k');
 %         plot(-sqrt(S), 'k');
         xlim([1 N]);
-        scatter(1, y * 10000)
+        scatter(1, (y + H0) * 10000)
 %         ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
         title("Pressure");
         
@@ -200,10 +209,18 @@ for n = 1:lengthSound
         plot(yNext(1:n));
         
         subplot(4,1,4)
-        plot(totEnergy(2:n) / totEnergy(2) - 1);
-        title("Normalised total energy (should be 0 within machine precision)")
-        
+        if n>2
+            plot(scaledTotEnergy(1:n));
+        end
+%         title("Normalised total energy (should be 0 within machine precision)")
+%         hold off;
+%         plot(hTube(2:n) - hTube(2));
+%         hold on;
+%         plot(hReed(2:n) - hReed(2));
+%         plot(qHReed(2:n));
+
         drawnow;
+        
     end
    
     % update states

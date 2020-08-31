@@ -6,15 +6,15 @@ clear all;
 close all;
 
 % drawing variables
-drawThings = true;
-drawSpeed = 500;
+drawThings = false;
+drawSpeed = 5;
 centered = true;
 
 impulse = true;
 
 fs = 44100;         % Sample rate (Hz)
 k = 1/fs;           % Time step (s)
-lengthSound = fs * 2; % Duration (s)
+lengthSound = fs * 20; % Duration (s)
 
 %% Tube variables
 c = 343;            % Wave speed (m/s)
@@ -33,7 +33,7 @@ lambda = c * k / h
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 200 / (2 * pi);                   % fundamental freq lips
+f0 = 200 / (2*pi);                   % fundamental freq lips
 M = 5.37e-5;                  % mass lips
 omega0Init = 2 * pi * f0;  % angular freq
 
@@ -71,7 +71,7 @@ amp = 3000;
 %     in = in - sum(in) / length(in);
 % else
     in = zeros(lengthSound, 1);
-%     p(floor(N / 3) - 5 : floor(N / 3) + 5) = hann(11);
+%     p(floor(N / 3) - 5 : floor(N / 3) + 5) = 100*hann(11);
 % end
 
 % output
@@ -108,7 +108,7 @@ for n = 1:lengthSound
         theta = 1;
     end
     theta = 0;
-    omega0Init = 2 * pi * f0;% * (1 + 0.01 * sin(15 * pi * n / lengthSound));
+    omega0Init = 2 * pi * f0 * (1 + 0.1 * n / fs);
     omega0 = omega0Init * sqrt(1 + 3 * theta);
 
     sig = sigInit * (1 + 4 * theta);
@@ -209,15 +209,15 @@ for n = 1:lengthSound
         plot(yNext(1:n));
         
         subplot(4,1,4)
-        if n>2
-            plot(scaledTotEnergy(1:n));
-        end
+%         if n>2
+%             plot(scaledTotEnergy(1:n));
+%         end
 %         title("Normalised total energy (should be 0 within machine precision)")
-%         hold off;
-%         plot(hTube(2:n) - hTube(2));
-%         hold on;
-%         plot(hReed(2:n) - hReed(2));
-%         plot(qHReed(2:n));
+        hold off;
+        plot(hTube(2:n) - hTube(2));
+        hold on;
+        plot(hReed(2:n) - hReed(2));
+        plot(scaledTotEnergy(2:n)*1e-5);
 
         drawnow;
         

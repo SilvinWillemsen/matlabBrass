@@ -1,6 +1,6 @@
 clear all;
 close all;
-drawSpeed = 1000;
+drawSpeed = 10;
 
 fs = 44100;
 k = 1 / fs;
@@ -14,18 +14,18 @@ omega0 = 2 * pi * f0;  % angular freq
 T = 26.85;
 [c, rho, eta, nu, gamma] = calcThermoDynConstants(T);
   
-sig = 1;
+sig = 0;
 H0 = 0.000;
 
 y = 1;
 yPrev = y;
 
-w = 1e-3;
-Sr = 1e-3 * w;
+w = 0;
+Sr = 1e-3;
 
-S = 0.005;
+S = 0;
 vNext = 0;
-SBar = 0.005;
+SBar = 0.000;
 h = 343 * k;
 
 Pm = 0;

@@ -6,21 +6,23 @@ clear all;
 close all;
 
 % drawing variables
-drawThings = false;
-drawSpeed = 5;
+drawThings = true;
+drawSpeed = 500;
 centered = true;
 
 impulse = true;
 
 fs = 44100;         % Sample rate (Hz)
 k = 1/fs;           % Time step (s)
-lengthSound = fs * 20; % Duration (s)
+lengthSound = fs * 2; % Duration (s)
+
+%% viscothermal effects
+T = 26.85;
+[c, rho, eta, nu, gamma] = calcThermoDynConstants(T);
 
 %% Tube variables
-c = 343;            % Wave speed (m/s)
-rho = 1;
 h = c * k;          % Grid spacing (m)
-L = 3;              % Length
+L = 1;              % Length
 
 N = floor(L/h);             % Number of points (-)
 h = L/N;                    % Recalculate gridspacing from number of points
@@ -33,21 +35,17 @@ lambda = c * k / h
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 200 / (2*pi);                   % fundamental freq lips
+f0 = 200;                   % fundamental freq lips
 M = 5.37e-5;                  % mass lips
 omega0Init = 2 * pi * f0;  % angular freq
 
-%% viscothermal effects
-T = 26.85;
-[c, rho, eta, nu, gamma] = calcThermoDynConstants(T);
-  
 sigInit = 5;
 H0 = 2.9e-4;
 
 y = 0;
 yPrev = y;
 
-w = 1e-2;
+w = 0;
 Sr = 1.46e-5;
 
 %Initialise states
@@ -56,7 +54,7 @@ p = zeros(N, 1);
 vNext = zeros(N-1, 1);
 v = zeros(N-1, 1);
 
-amp = 3000;
+amp = 0;
 % if ~impulse  
 %     % input signal
 %     t = (0:lengthSound - 1) / fs;
@@ -71,7 +69,7 @@ amp = 3000;
 %     in = in - sum(in) / length(in);
 % else
     in = zeros(lengthSound, 1);
-%     p(floor(N / 3) - 5 : floor(N / 3) + 5) = 100*hann(11);
+    p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = 100*hann(11);
 % end
 
 % output
@@ -97,8 +95,6 @@ potEnergy = zeros (lengthSound, 1);
 totEnergy = zeros (lengthSound, 1);
 qHReed = zeros (lengthSound, 1);
 pHReed = zeros (lengthSound, 1);
-qHReed = zeros (lengthSound, 1);
-pHReed = zeros (lengthSound, 1);
 
 for n = 1:lengthSound
     % if lipstate + equilibrium is below 0, change heaviside variable to 1
@@ -108,7 +104,7 @@ for n = 1:lengthSound
         theta = 1;
     end
     theta = 0;
-    omega0Init = 2 * pi * f0 * (1 + 0.1 * n / fs);
+    omega0Init = 2 * pi * f0;% * (1 + 0.1 * n / fs);
     omega0 = omega0Init * sqrt(1 + 3 * theta);
 
     sig = sigInit * (1 + 4 * theta);
@@ -124,12 +120,12 @@ for n = 1:lengthSound
 %         theta = 1;
 %     end
 %     
-%     ramp = 1000;
-%     if n < ramp
-%         Pm = amp * n / ramp;
-%     else
+    ramp = 1000;
+    if n < ramp
+        Pm = amp * n / ramp;
+    else
         Pm = amp;
-%     end
+    end
 %     
     a1 = 2 / k + omega0^2 * k + sig;
     a2 = Sr / M;
@@ -156,7 +152,6 @@ for n = 1:lengthSound
     UrSave(n) = Ur;
 
     %% Schemes
-
     % calculate schemes
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
     pNext(1) = p(1) - rho * c * lambda ./ SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
@@ -171,15 +166,19 @@ for n = 1:lengthSound
     potEnergy(n) = rho / 2 * h * sum(SHalf .* vNext .* v);
     hTube(n) = kinEnergy(n) + potEnergy(n);
     hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
-    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + w * subplus(y + H0) * sqrt(2 / rho) * abs(deltaP)^(3/2);
+    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP;% + w * subplus(y + H0) * sqrt(2 / rho) * abs(deltaP)^(3/2);
     idx = n - (1 * (n~=1));
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
+%     if n == 1
+        totEnergy(n) = hTube(n) + hReed(n) + qHReed(idx) + pHReed(idx);
+%     else
+%         totEnergy(n) = hTube(n) + hReed(n);
+%     end
     
-    totEnergy(n) = hTube(n) + hReed(n) + qHReed(idx) + pHReed(idx);
-    if n>2
-        scaledTotEnergy(n) = (totEnergy(n) - hTube(2) - hReed(2)) / (hTube(2) + hReed(2));
+    if n>1
+        scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1)) / (hTube(1) + hReed(1));
     end
     % draw things
     if drawThings && mod (n, drawSpeed) == 0
@@ -206,19 +205,12 @@ for n = 1:lengthSound
         title("Particle Velocity")
 
         subplot(4,1,3)
-        plot(yNext(1:n));
-        
+        plot(out(1:n))
         subplot(4,1,4)
-%         if n>2
-%             plot(scaledTotEnergy(1:n));
+%         if n>10
+            plot(scaledTotEnergy(1:n));
 %         end
-%         title("Normalised total energy (should be 0 within machine precision)")
-        hold off;
-        plot(hTube(2:n) - hTube(2));
-        hold on;
-        plot(hReed(2:n) - hReed(2));
-        plot(scaledTotEnergy(2:n)*1e-5);
-
+        
         drawnow;
         
     end
@@ -241,7 +233,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);        % tube
 
     S = [mp, m2t, tube, b]';                        % True geometry
-%     S = 5000 * ones(N,1);
+%     S = ones(N,1);
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;           	% mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

@@ -32,7 +32,7 @@ lambda = c * k / h
 % a1 = 1; % loss
 
 % lipcollision
-Kcol = 1e20;
+Kcol = 5;
 alf = 1;
 
 % Set cross-sectional geometry

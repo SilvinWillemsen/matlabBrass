@@ -7,7 +7,7 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 500;
+drawSpeed = 1000;
 centered = true;
 
 impulse = true;
@@ -35,7 +35,7 @@ lambda = c * k / h
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 200;                   % fundamental freq lips
+f0 = 100;                   % fundamental freq lips
 M = 5.37e-5;                  % mass lips
 omega0Init = 2 * pi * f0;  % angular freq
 
@@ -43,9 +43,9 @@ sigInit = 5;
 H0 = 2.9e-4;
 
 y = 0;
-yPrev = y;
+yPrev = -H0;
 
-w = 0;
+w = 1e-2;
 Sr = 1.46e-5;
 
 %Initialise states
@@ -54,23 +54,10 @@ p = zeros(N, 1);
 vNext = zeros(N-1, 1);
 v = zeros(N-1, 1);
 
-amp = 0;
-% if ~impulse  
-%     % input signal
-%     t = (0:lengthSound - 1) / fs;
-%     freq = 446/4;
-%     in = cos(2 * pi * freq * t) - 0.5;
-%     in = (in + abs(in)) / 2; % subplus
-%     in = in - sum(in) / length(in);
-%     in = in * amp;
-%     rampLength = 1000; 
-%     env = [linspace(0, 1, rampLength), ones(1, lengthSound - rampLength)];
-%     in = in .* env;
-%     in = in - sum(in) / length(in);
-% else
-    in = zeros(lengthSound, 1);
-    p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = 100*hann(11);
-% end
+amp = 3000;
+
+in = zeros(lengthSound, 1);
+% p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = hann(11);
 
 % output
 out = zeros(lengthSound, 1);
@@ -94,9 +81,15 @@ kinEnergy = zeros (lengthSound, 1);
 potEnergy = zeros (lengthSound, 1);
 totEnergy = zeros (lengthSound, 1);
 qHReed = zeros (lengthSound, 1);
+uBHReed = zeros (lengthSound, 1);
 pHReed = zeros (lengthSound, 1);
 
 for n = 1:lengthSound
+    %% Calculate velocities before lip model
+    vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
+    
+    %% Lip model
+
     % if lipstate + equilibrium is below 0, change heaviside variable to 1
     if (y + H0) > 0
         theta = 0;
@@ -108,18 +101,7 @@ for n = 1:lengthSound
     omega0 = omega0Init * sqrt(1 + 3 * theta);
 
     sig = sigInit * (1 + 4 * theta);
-%     omega0Save(n) = omega0;
-    %% Calculate velocities before lip model
-    vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
 
-    %% Lip model
-    
-%     if y > 0
-%         theta = 0;
-%     else
-%         theta = 1;
-%     end
-%     
     ramp = 1000;
     if n < ramp
         Pm = amp * n / ramp;
@@ -132,7 +114,7 @@ for n = 1:lengthSound
     a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev;
     b1 = SHalf(1) * vNext(1) + h * SBar(1) / (rho * c^2 * k) * (Pm  - p(1));
     b2 = h * SBar(1) / (rho * c^2 * k);
-    c1 = w * subplus(y) * sqrt(2 / rho);
+    c1 = w * subplus(y + H0) * sqrt(2 / rho);
     c2 = b2 + a2 * Sr / a1;
     c3 = b1 - a3 * Sr / a1;
     
@@ -166,20 +148,18 @@ for n = 1:lengthSound
     potEnergy(n) = rho / 2 * h * sum(SHalf .* vNext .* v);
     hTube(n) = kinEnergy(n) + potEnergy(n);
     hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
-    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP;% + w * subplus(y + H0) * sqrt(2 / rho) * abs(deltaP)^(3/2);
+    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP;
+
     idx = n - (1 * (n~=1));
+
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
-%     if n == 1
-        totEnergy(n) = hTube(n) + hReed(n) + qHReed(idx) + pHReed(idx);
-%     else
-%         totEnergy(n) = hTube(n) + hReed(n);
-%     end
+
     
-    if n>1
-        scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1)) / (hTube(1) + hReed(1));
-    end
+    totEnergy(n) = hTube(n) + hReed(n) + qHReed(idx) + uBHReed(idx) + pHReed(idx);
+    scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1)) / 2^floor(log2(hTube(1) + hReed(1)));
+% end
     % draw things
     if drawThings && mod (n, drawSpeed) == 0
         subplot(4,1,1)
@@ -208,9 +188,14 @@ for n = 1:lengthSound
         plot(out(1:n))
         subplot(4,1,4)
 %         if n>10
-            plot(scaledTotEnergy(1:n));
-%         end
+        hold off;
+        if n>11
+            plot(scaledTotEnergy(10:n))
+        end
         
+        hold on;
+%         plot(uBHReed(1:n-1));
+%         end
         drawnow;
         
     end
@@ -233,7 +218,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);        % tube
 
     S = [mp, m2t, tube, b]';                        % True geometry
-%     S = ones(N,1);
+    S = 0.005* ones(N,1);
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;           	% mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

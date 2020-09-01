@@ -6,7 +6,7 @@ clear all;
 close all;
 
 % drawing variables
-drawThings = true;
+drawThings = false;
 drawSpeed = 5000;
 centered = true;
 
@@ -32,8 +32,8 @@ lambda = c * k / h
 % a1 = 1; % loss
 
 % lipcollision
-Kcol = 50000000;
-alf = 6;
+Kcol = 1000;
+alf = 3;
 
 % Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
@@ -108,7 +108,7 @@ for n = 1:lengthSound
     end
     theta = 0;
     omega0Init = 2 * pi * f0;% * (1 + 0.1 * n / fs);
-    omega0 = omega0Init * sqrt(1 + 3 * theta);
+    omega0 = omega0Init;% * sqrt(1 + 3 * theta);
 
     sig = sigInit * (1 + 4 * theta);
 

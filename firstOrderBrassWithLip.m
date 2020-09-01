@@ -32,8 +32,8 @@ lambda = c * k / h
 % a1 = 1; % loss
 
 % lipcollision
-Kcol = 5;
-alf = 1;
+Kcol = 50000000;
+alf = 6;
 
 % Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
@@ -132,9 +132,9 @@ for n = 1:lengthSound
     end
     
     gSave(n) = g;
-    a1 = 2 / k + omega0^2 * k + sig - k/2 * g^2 / M;
+    a1 = 2 / k + omega0^2 * k + sig + k/2 * g^2 / M;
     a2 = Sr / M;
-    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev - psiPrev * g / M;
+    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev + psiPrev * g / M;
     b1 = SHalf(1) * vNext(1) + h * SBar(1) / (rho * c^2 * k) * (Pm  - p(1));
     b2 = h * SBar(1) / (rho * c^2 * k);
     c1 = w * subplus(y + H0) * sqrt(2 / rho);

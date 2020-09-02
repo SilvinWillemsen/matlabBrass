@@ -6,8 +6,8 @@ clear all;
 close all;
 
 % drawing variables
-drawThings = false;
-drawSpeed = 5000;
+drawThings = true;
+drawSpeed = 10000;
 centered = true;
 
 impulse = true;
@@ -18,7 +18,7 @@ lengthSound = fs * 2; % Duration (s)
 
 %% viscothermal effects
 T = 26.85;
-[c, rho, eta, nu, gamma] = calcThermoDynConstants(T);
+[c, rho, eta, nu, gammaR] = calcThermoDynConstants(T);
 
 %% Tube variables
 h = c * k;          % Grid spacing (m)
@@ -32,8 +32,8 @@ lambda = c * k / h
 % a1 = 1; % loss
 
 % lipcollision
-Kcol = 1000;
-alf = 3;
+Kcol = 100;
+alf = 2;
 
 % Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
@@ -132,9 +132,9 @@ for n = 1:lengthSound
     end
     
     gSave(n) = g;
-    a1 = 2 / k + omega0^2 * k + sig + k/2 * g^2 / M;
+    a1 = 2 / k + omega0^2 * k + sig + g^2 * k / (2 * M);
     a2 = Sr / M;
-    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev + psiPrev * g / M;
+    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev + g / M * psiPrev;
     b1 = SHalf(1) * vNext(1) + h * SBar(1) / (rho * c^2 * k) * (Pm  - p(1));
     b2 = h * SBar(1) / (rho * c^2 * k);
     c1 = w * subplus(y + H0) * sqrt(2 / rho);
@@ -143,14 +143,14 @@ for n = 1:lengthSound
     
     deltaP = sign(c3) * ((-c1 + sqrt(c1^2 + 4 * c2 * abs(c3)))/ (2 * c2))^2;
     
-    divTerm = (2 + g^2 * k^2 / (2 * M) + omega0^2 * k^2 + sig * k);
-    alpha = 4 / divTerm;
-    beta = (sig * k - 2 - omega0^2 * k^2 + g^2 * k^2 / (2 * M)) / divTerm;
-    epsilon = 2 * Sr * k^2 / (M * divTerm);
-% epsilon = 0;
-    yNext(n) = alpha * y + beta * yPrev + epsilon * deltaP + 2 * g * k^2 / (M * divTerm) * psiPrev;
+    gammaR = g * k^2 / (2 * M);
+    alpha = 2 + omega0^2 * k^2 + sig * k + g * gammaR;
+    beta = sig * k - 2 - omega0^2 * k^2 + g * gammaR;
+    xi = 2 * Sr * k^2 / M;
 
-    psi = psiPrev + 0.5 * g * ((barr - yNext(n)) - (barr - yPrev));
+    yNext(n) = 4 / alpha * y + beta / alpha * yPrev + xi / alpha * deltaP + 4 * gammaR * psiPrev / alpha;
+
+    psi = psiPrev - 0.5 * g * (yNext(n) - yPrev);
 
     Ub = w * subplus(y + H0) * sign(deltaP) * sqrt(2 * abs(deltaP)/rho);
     Ur = Sr * 1/(2*k) * (yNext(n) - yPrev);

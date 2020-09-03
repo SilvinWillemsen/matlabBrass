@@ -7,10 +7,8 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 1000;
+drawSpeed = 10000;
 centered = true;
-
-impulse = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
@@ -30,7 +28,7 @@ h = L/N;                % Recalculate gridspacing from number of points
 lambda = c * k / h      % courant number
 
 %% Lip Collision
-Kcol = 10000;
+Kcol = 100;
 alfCol = 1;
 
 %% Set cross-sectional geometry
@@ -45,7 +43,7 @@ sig = 5;                % damping
 H0 = 2.9e-4;                % equilibrium
 
 y = 0;                      % initial lip state
-yPrev = -H0;                  % previous lip state
+yPrev = 0;                  % previous lip state
 
 w = 1e-2;                   % lip width
 Sr = 1.46e-5;               % lip area
@@ -152,7 +150,8 @@ for n = 1:lengthSound
     %% Calculate pressure
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
     pNext(1) = p(1) - rho * c * lambda ./ SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
-    
+%     pNext(N) = p(N) - rho * c * lambda ./ SBar(N) .* (-2 * SHalf(end) * vNext(end));
+
     %% Set output from output position
     out(n) = p(outputPos);
     

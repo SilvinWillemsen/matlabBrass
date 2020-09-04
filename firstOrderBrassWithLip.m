@@ -12,7 +12,7 @@ centered = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs * 2;   % Duration (s)
+lengthSound = fs * 5;   % Duration (s)
 
 %% viscothermal effects
 T = 26.85;
@@ -35,7 +35,7 @@ alfCol = 1;
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 100;                   % fundamental freq lips
+f0 = 150;                   % fundamental freq lips
 M = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0;   % angular freq
 
@@ -43,7 +43,7 @@ sig = 5;                % damping
 H0 = 2.9e-4;                % equilibrium
 
 y = 0;                      % initial lip state
-yPrev = 0;                  % previous lip state
+yPrev = H0;                  % previous lip state
 
 w = 1e-2;                   % lip width
 Sr = 1.46e-5;               % lip area
@@ -93,9 +93,25 @@ if centered
     scaling(N) = 1 / 2;
 end
 
+%
 psiPrev = 0;
 etaC = 0;
 
+%% Radiation impedance
+R1 = rho * c;
+rL = SBar(end) / 2;
+Lr = 0.613 * rho * rL;
+R2 = 0.505 * rho * c;
+Cr = 1.111 * rL / (rho * c^2); 
+
+zDiv = 2 * R1 * R2 * Lr + k * (R1 + R2);
+z1 = 2 * R2 * k / zDiv;
+z2 = 2 * R1 * R2 * Lr - k * (R1 + R2);
+z3 = k/(2*Lr) + (1 / (2 * R2) + Cr / k) * z1;
+z4 = (1 / (2 * R2) + Cr / k) * z2 + 1 / (2 * R2) - Cr / k;
+    
+p1 = 0;
+v1 = 0;
 for n = 1:lengthSound
     %% Calculate velocities before lip model
     vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
@@ -150,8 +166,11 @@ for n = 1:lengthSound
     %% Calculate pressure
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
     pNext(1) = p(1) - rho * c * lambda ./ SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
-%     pNext(N) = p(N) - rho * c * lambda ./ SBar(N) .* (-2 * SHalf(end) * vNext(end));
+    pNext(N) = (p(N) - rho * c * lambda * z3 - 2 * rho * c * lambda * (z4 * p1 + v1) + 2 * rho * c * lambda / SBar(N) * SHalf(end) .* vNext(end)) / (1 + rho * c * lambda * z3);
 
+    v1Next = v1 + k / (2 * Lr) * (pNext(N) + p(N));
+    p1Next = z1 / 2 * (pNext(N) + p(N)) + z2 * p1;
+    
     %% Set output from output position
     out(n) = p(outputPos);
     
@@ -161,6 +180,7 @@ for n = 1:lengthSound
     hTube(n) = kinEnergy(n) + potEnergy(n);
     hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
     hColl(n) = psiPrev^2 / 2;
+    hRad(n) = SBar(N) / 2 * (Lr * v1^2 + Cr * p1^2);
 
     % summed forms (damping and power input)
     idx = n - (1 * (n~=1));
@@ -168,10 +188,12 @@ for n = 1:lengthSound
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
+    
+%     qRad(n) = SBar(N) * (R1 / 2 * (v))
 
     % total energies
-    totEnergy(n) = hTube(n) + hReed(n) + hColl(n) + qHReed(idx) + pHReed(idx);
-    scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1) - hColl(1)) / 2^floor(log2(hTube(1) + hReed(1) + hColl(1)));
+    totEnergy(n) = hTube(n) + hReed(n) + hColl(n) + hRad(n) + qHReed(idx) + pHReed(idx);
+    scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1) - hColl(1) - hRad(1)) / 2^floor(log2(hTube(1) + hReed(1) + hColl(1) + hRad(1)));
 
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0
@@ -214,6 +236,7 @@ for n = 1:lengthSound
     v = vNext;
     p = pNext;
     
+    
     yPrev = y;
     y = yNext(n);
     psiPrev = psi; 
@@ -230,7 +253,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
 
     S = [mp, m2t, tube, b]';                            % True geometry
-
+%     S = 0.005 * (ones(length(S), 1));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

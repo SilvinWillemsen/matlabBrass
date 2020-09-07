@@ -7,7 +7,7 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 10000;
+drawSpeed = 10;
 centered = true;
 
 fs = 44100;             % Sample rate (Hz)
@@ -29,7 +29,7 @@ lambda = c * k / h      % courant number
 
 %% Lip Collision
 Kcol = 100;
-alfCol = 1;
+alfCol = 1; 
 
 %% Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
@@ -39,7 +39,7 @@ f0 = 150;                   % fundamental freq lips
 M = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0;   % angular freq
 
-sig = 5;                % damping
+sig = 0;                % damping
 H0 = 2.9e-4;                % equilibrium
 
 y = 0;                      % initial lip state
@@ -61,7 +61,7 @@ in = zeros(lengthSound, 1);
 
 % Initialise output
 out = zeros (lengthSound, 1);
-outputPos = floor(1/5 * N);
+outputPos = floor(4/5 * N);
 
 % Set ranges
 pRange = 2:N-1;         % range without boundaries
@@ -78,11 +78,15 @@ totEnergy = zeros (lengthSound, 1);
 hTube = zeros (lengthSound, 1);
 hReed = zeros (lengthSound, 1);
 hColl = zeros (lengthSound, 1);
+hRad = zeros (lengthSound, 1);
 
 qReed = zeros (lengthSound, 1);
 qHReed = zeros (lengthSound, 1);
 pReed = zeros (lengthSound, 1);
 pHReed = zeros (lengthSound, 1);
+qRad = zeros (lengthSound, 1);
+qHRad = zeros (lengthSound, 1);
+
 
 totEnergy = zeros (lengthSound, 1);
 scaledTotEnergy = zeros (lengthSound, 1);
@@ -99,16 +103,29 @@ etaC = 0;
 
 %% Radiation impedance
 R1 = rho * c;
-rL = SBar(end) / 2;
+% R1 = 0.000000001;
+% R1 = 0;
+rL = sqrt(SBar(end)) / (2 * pi);
 Lr = 0.613 * rho * rL;
+Lr = 0;
 R2 = 0.505 * rho * c;
+% R2 = 0.000000001;
+% R2 = 0;
 Cr = 1.111 * rL / (rho * c^2); 
+Cr = 0;
 
-zDiv = 2 * R1 * R2 * Lr + k * (R1 + R2);
-z1 = 2 * R2 * k / zDiv;
-z2 = 2 * R1 * R2 * Lr - k * (R1 + R2);
-z3 = k/(2*Lr) + (1 / (2 * R2) + Cr / k) * z1;
-z4 = (1 / (2 * R2) + Cr / k) * z2 + 1 / (2 * R2) - Cr / k;
+zDiv = 2 * R1 * R2 * Cr + k * (R1 + R2);
+if zDiv == 0
+    z1 = 0;
+    z2 = 0;
+else
+    z1 = 2 * R2 * k / zDiv;
+    z2 = (2 * R1 * R2 * Cr - k * (R1 + R2)) / zDiv;
+
+end
+z3 = k/(2*Lr) + z1 / (2 * R2) + Cr * z1 / k;
+z4 = (z2 + 1) / (2 * R2) + (Cr * z2 - Cr) / k;
+
     
 p1 = 0;
 v1 = 0;
@@ -117,12 +134,12 @@ for n = 1:lengthSound
     vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
     
     %% Variable input force
-    ramp = 1000;
-    if n < ramp
-        Pm = amp * n / ramp;
-    else
+%     ramp = 1000;
+%     if n < ramp
+%         Pm = amp * n / ramp;
+%     else
         Pm = amp;
-    end
+%     end
 
     %% Collision
     barr = -H0;
@@ -165,12 +182,15 @@ for n = 1:lengthSound
 
     %% Calculate pressure
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
-    pNext(1) = p(1) - rho * c * lambda ./ SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
-    pNext(N) = (p(N) - rho * c * lambda * z3 - 2 * rho * c * lambda * (z4 * p1 + v1) + 2 * rho * c * lambda / SBar(N) * SHalf(end) .* vNext(end)) / (1 + rho * c * lambda * z3);
+    pNext(1) = p(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
+    pNext(N) = ((1 - rho * c * lambda * z3) * p(N) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* vNext(end))/SBar(N))) / (1 + rho * c * lambda * z3);
 
     v1Next = v1 + k / (2 * Lr) * (pNext(N) + p(N));
     p1Next = z1 / 2 * (pNext(N) + p(N)) + z2 * p1;
     
+    if p1Next ~= 0
+        disp("wait")
+    end
     %% Set output from output position
     out(n) = p(outputPos);
     
@@ -182,17 +202,24 @@ for n = 1:lengthSound
     hColl(n) = psiPrev^2 / 2;
     hRad(n) = SBar(N) / 2 * (Lr * v1^2 + Cr * p1^2);
 
+    v3Next = p1Next / R2;
+    v3 = p1 / R2;
+    pBar = 0.5 * (pNext(N) + p(N));
+    muTPv2 = (pBar - 0.5 * (p1Next + p1)) / R1;
+    
     % summed forms (damping and power input)
     idx = n - (1 * (n~=1));
     qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP;
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
-    
+    qRad(n) = SBar(N) * (R1 * muTPv2^2 + R2 * (0.5 * (v3Next + v3))^2);
+    qHRad(n) = k * qRad(n) + qHRad(idx);
+%     qRad(n
 %     qRad(n) = SBar(N) * (R1 / 2 * (v))
 
     % total energies
-    totEnergy(n) = hTube(n) + hReed(n) + hColl(n) + hRad(n) + qHReed(idx) + pHReed(idx);
+    totEnergy(n) = hTube(n) + hReed(n) + hColl(n) + hRad(n) + qHReed(idx) + pHReed(idx) + qHRad(idx);
     scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1) - hColl(1) - hRad(1)) / 2^floor(log2(hTube(1) + hReed(1) + hColl(1) + hRad(1)));
 
     %% Draw things
@@ -227,7 +254,8 @@ for n = 1:lengthSound
         
         % Plot scaled energy
         subplot(4,1,4)
-        plot(scaledTotEnergy(10:n))
+        plot(scaledTotEnergy(2:n))
+%         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
         drawnow;
         
     end
@@ -236,6 +264,8 @@ for n = 1:lengthSound
     v = vNext;
     p = pNext;
     
+    p1 = p1Next;
+    v1 = p1Next;
     
     yPrev = y;
     y = yNext(n);
@@ -253,7 +283,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
 
     S = [mp, m2t, tube, b]';                            % True geometry
-%     S = 0.005 * (ones(length(S), 1));
+    S = 0.005 * (ones(length(S), 1));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

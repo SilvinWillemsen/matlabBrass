@@ -7,12 +7,12 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 10;
+drawSpeed = 10000;
 centered = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs * 5;   % Duration (s)
+lengthSound = fs * 2;   % Duration (s)
 
 %% viscothermal effects
 T = 26.85;
@@ -28,18 +28,18 @@ h = L/N;                % Recalculate gridspacing from number of points
 lambda = c * k / h      % courant number
 
 %% Lip Collision
-Kcol = 100;
-alfCol = 1; 
+Kcol = 10000;
+alfCol = 5; 
 
 %% Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 150;                   % fundamental freq lips
+f0 = 300;                   % fundamental freq lips
 M = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0;   % angular freq
 
-sig = 0;                % damping
+sig = 1;                % damping
 H0 = 2.9e-4;                % equilibrium
 
 y = 0;                      % initial lip state
@@ -51,10 +51,11 @@ Sr = 1.46e-5;               % lip area
 %% Initialise states
 pNext = zeros(N, 1);        % pressure
 p = zeros(N, 1);
+% p(N/2-5 : N/2+5) =100 * hann(11);
 vNext = zeros(N-1, 1);      % velocity
 v = zeros(N-1, 1);
 
-amp = 3000;                 % input pressure (Pa)
+amp = 30000;                 % input pressure (Pa)
 
 in = zeros(lengthSound, 1);
 % p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = hann(11);
@@ -103,16 +104,10 @@ etaC = 0;
 
 %% Radiation impedance
 R1 = rho * c;
-% R1 = 0.000000001;
-% R1 = 0;
-rL = sqrt(SBar(end)) / (2 * pi);
+rL = sqrt(SBar(N)) / (2 * pi);
 Lr = 0.613 * rho * rL;
-Lr = 0;
 R2 = 0.505 * rho * c;
-% R2 = 0.000000001;
-% R2 = 0;
 Cr = 1.111 * rL / (rho * c^2); 
-Cr = 0;
 
 zDiv = 2 * R1 * R2 * Cr + k * (R1 + R2);
 if zDiv == 0
@@ -125,7 +120,6 @@ else
 end
 z3 = k/(2*Lr) + z1 / (2 * R2) + Cr * z1 / k;
 z4 = (z2 + 1) / (2 * R2) + (Cr * z2 - Cr) / k;
-
     
 p1 = 0;
 v1 = 0;
@@ -134,12 +128,12 @@ for n = 1:lengthSound
     vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
     
     %% Variable input force
-%     ramp = 1000;
-%     if n < ramp
-%         Pm = amp * n / ramp;
-%     else
+    ramp = 1000;
+    if n < ramp
+        Pm = amp * n / ramp;
+    else
         Pm = amp;
-%     end
+    end
 
     %% Collision
     barr = -H0;
@@ -184,13 +178,12 @@ for n = 1:lengthSound
     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
     pNext(1) = p(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
     pNext(N) = ((1 - rho * c * lambda * z3) * p(N) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* vNext(end))/SBar(N))) / (1 + rho * c * lambda * z3);
+%     pNext(N) = alphaR * p(N) + betaR * SHalf(end) * vNext(end) + epsilonR * v1 + nuR * p1;
 
     v1Next = v1 + k / (2 * Lr) * (pNext(N) + p(N));
     p1Next = z1 / 2 * (pNext(N) + p(N)) + z2 * p1;
-    
-    if p1Next ~= 0
-        disp("wait")
-    end
+%     p1Next = taoR * p1 + xiR / 2 * (pNext(N) + p(N)) ;
+
     %% Set output from output position
     out(n) = p(outputPos);
     
@@ -234,7 +227,7 @@ for n = 1:lengthSound
         plot(sqrt(S), 'k');
         plot(-sqrt(S), 'k');
         xlim([1 N]);
-        scatter(1, (y + H0) * 10000)
+%         scatter(1, (y + H0) * 10000)
         ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
         title("Pressure");
         
@@ -265,7 +258,7 @@ for n = 1:lengthSound
     p = pNext;
     
     p1 = p1Next;
-    v1 = p1Next;
+    v1 = v1Next;
     
     yPrev = y;
     y = yNext(n);
@@ -283,7 +276,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
 
     S = [mp, m2t, tube, b]';                            % True geometry
-    S = 0.005 * (ones(length(S), 1));
+%     S = 0.005 * (ones(length(S), 1));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

@@ -20,26 +20,26 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-L = 1;                  % Length
-
+Ninit = 337;
+L = Ninit * h;          % Length
 N = floor(L/h);         % Number of points (-)
-h = L/N;                % Recalculate gridspacing from number of points
+alf = Ninit - N;
 
 lambda = c * k / h      % courant number
 
 %% Lip Collision
-Kcol = 10000;
+Kcol = 100;
 alfCol = 5; 
 
 %% Set cross-sectional geometry
 [S, SHalf, SBar] = setTube (N);
 
 %% Lip variables
-f0 = 300;                   % fundamental freq lips
+f0 = 350;                   % fundamental freq lips
 M = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0;   % angular freq
 
-sig = 5;                % damping
+sig = 1;                % damping
 H0 = 2.9e-4;                % equilibrium
 
 y = 0;                      % initial lip state
@@ -49,24 +49,17 @@ w = 1e-2;                   % lip width
 Sr = 1.46e-5;               % lip area
 
 %% Initialise states
-pNext = zeros(N, 1);        % pressure
+pNext = zeros(N, 1);
 p = zeros(N, 1);
-% p(N/2-5 : N/2+5) =100 * hann(11);
-vNext = zeros(N-1, 1);      % velocity
+vNext = zeros(N-1, 1); 
 v = zeros(N-1, 1);
 
-amp = 30000;                 % input pressure (Pa)
+amp = 3000;                 % input pressure (Pa)
 
 in = zeros(lengthSound, 1);
-% p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = hann(11);
 
 % Initialise output
 out = zeros (lengthSound, 1);
-outputPos = floor(4/5 * N);
-
-% Set ranges
-pRange = 2:N-1;         % range without boundaries
-vRange = 1:N-1;         % range from 1/2 - N-1/2
 
 % Virtual points
 SNph = 2 * SBar(N) - SHalf(end);
@@ -87,7 +80,6 @@ pReed = zeros (lengthSound, 1);
 pHReed = zeros (lengthSound, 1);
 qRad = zeros (lengthSound, 1);
 qHRad = zeros (lengthSound, 1);
-
 
 totEnergy = zeros (lengthSound, 1);
 scaledTotEnergy = zeros (lengthSound, 1);
@@ -120,14 +112,24 @@ else
 end
 z3 = k/(2*Lr) + z1 / (2 * R2) + Cr * z1 / k;
 z4 = (z2 + 1) / (2 * R2) + (Cr * z2 - Cr) / k;
-    
 p1 = 0;
 v1 = 0;
+
+%% Create matrices
+ev = ones(length(p), 1);
+Dxv = lambda / (rho * c) * spdiags([-ev ev], 0:1, length(v),length(p));
+lastPTerm = (2 * SHalf(length(p) - 1) / SBar(N)) / (1 + rho * c * lambda * z3);
+Dxp = rho * c * lambda * spdiags([-[SHalf(1:length(p)-2)./SBar(2:length(p)-1); lastPTerm] ...
+    [2 * SHalf(1) / SBar(1); SHalf(2:length(p)-1)./SBar(2:length(p)-1)]], -1:0, length(p),length(v));
+
+%% Initialise ranges
+pRange = 2:N-1;
+vRange = 1:N-1;
 for n = 1:lengthSound
     %% Calculate velocities before lip model
-    vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
-    
-    %% Variable input force
+    vNext = v - Dxv * p;
+
+    %% Variable input pressure
     ramp = 1000;
     if n < ramp
         Pm = amp * n / ramp;
@@ -174,18 +176,22 @@ for n = 1:lengthSound
     Ub = w * subplus(y + H0) * sign(deltaP) * sqrt(2 * abs(deltaP)/rho);
     Ur = Sr * 1/(2*k) * (yNext(n) - yPrev);
 
-    %% Calculate pressure
-    pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
-    pNext(1) = p(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
-    pNext(N) = ((1 - rho * c * lambda * z3) * p(N) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* vNext(end))/SBar(N))) / (1 + rho * c * lambda * z3);
-%     pNext(N) = alphaR * p(N) + betaR * SHalf(end) * vNext(end) + epsilonR * v1 + nuR * p1;
+    %% Calculate pressure (matrix form)
+    pNext = p - Dxp * vNext;
+    pNext(1) = pNext(1) + 2 * rho * c * lambda / SBar(1) * (Ub + Ur);
+    pNext(N) = pNext(N) - p(N) + ((1 - rho * c * lambda * z3) * p(N)...
+        - (2 * rho * c * lambda * (v1 + z4 * p1))) / (1 + rho * c * lambda * z3);
+    
+    % non-matrix form
+%     pNext(pRange) = p(pRange) - rho * c * lambda ./ SBar(pRange) .* (SHalf(pRange) .* vNext(pRange) - SHalf(pRange-1) .* vNext(pRange-1));
+%     pNext(1) = p(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * vNext(1));
+%     pNext(N) = ((1 - rho * c * lambda * z3) * p(N) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* vNext(end)) / SBar(N))) / (1 + rho * c * lambda * z3);
 
     v1Next = v1 + k / (2 * Lr) * (pNext(N) + p(N));
     p1Next = z1 / 2 * (pNext(N) + p(N)) + z2 * p1;
-%     p1Next = taoR * p1 + xiR / 2 * (pNext(N) + p(N)) ;
 
     %% Set output from output position
-    out(n) = p(outputPos);
+    out(n) = p(N-5);
     
     %% Energies
     kinEnergy(n) = 1/(2 * rho * c^2) * h * sum(SBar .* scaling .* p.^2);
@@ -208,12 +214,12 @@ for n = 1:lengthSound
     pHReed(n) = k * pReed(n) + pHReed(idx);
     qRad(n) = SBar(N) * (R1 * muTPv2^2 + R2 * (0.5 * (v3Next + v3))^2);
     qHRad(n) = k * qRad(n) + qHRad(idx);
-%     qRad(n
-%     qRad(n) = SBar(N) * (R1 / 2 * (v))
 
     % total energies
     totEnergy(n) = hTube(n) + hReed(n) + hColl(n) + hRad(n) + qHReed(idx) + pHReed(idx) + qHRad(idx);
-    scaledTotEnergy(n) = (totEnergy(n) - hTube(1) - hReed(1) - hColl(1) - hRad(1)) / 2^floor(log2(hTube(1) + hReed(1) + hColl(1) + hRad(1)));
+    totEnergy1 = hTube(1) + hReed(1) + hColl(1) + hRad(1);
+
+    scaledTotEnergy(n) = (totEnergy(n) - totEnergy1) / 2^floor(log2(totEnergy1));
 
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0
@@ -222,13 +228,13 @@ for n = 1:lengthSound
         subplot(4,1,1)
         cla
         hold on;
-        plotPressurePotential (p / 10000, sqrt(S));
+%         plotPressurePotential (p / 10000, sqrt(S));
         plot(p / 100000)
-        plot(sqrt(S), 'k');
-        plot(-sqrt(S), 'k');
+%         plot(sqrt(S), 'k');
+%         plot(-sqrt(S), 'k');
         xlim([1 N]);
 %         scatter(1, (y + H0) * 10000)
-        ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
+%         ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
         title("Pressure");
         
         % Plot the velocity
@@ -276,7 +282,7 @@ function [S, SHalf, SBar] = setTube(N)
     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
 
     S = [mp, m2t, tube, b]';                            % True geometry
-%     S = 0.005 * (ones(length(S), 1));
+    S = (ones(length(S), 1));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

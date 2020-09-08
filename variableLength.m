@@ -115,7 +115,7 @@ ew = ones(length(w), 1);
 Dxxw = spdiags([([SHalf(length(u)-1:end-1)./SBar(length(u):end-1); 2; 0]) -2*ew ([0; SHalf(length(u)-1:end)./SBar(length(u)-1:end-1)])], -1:1, length(w),length(w));
 
 interpolatedPoints = [0; 0];
-changeC = false;
+changeC = true;
 interpol = "cubic";
 for n = 1:lengthSound
     % change wave speed
@@ -224,7 +224,7 @@ for n = 1:lengthSound
     uNext(1) = uNext(1) + 2 * h * lambdaSq * SOnemh / SBar(1) * in(n);
 % %     uNext(end) = (2 * (1 - lambdaSq) * u(end) - uPrev(end) + lambdaSq * 2 * u(end-1) + h * lambdaSq * SNph / SBar(N) * (a1/k - a2) * uPrev(N)) / (1 + lambdaSq * SNph / SBar(N) * h * (a1/k + a2));
 % 
-    pressure = 1/(2*k) * (uNext(1) - uPrev(1))
+    pressure = 1/(2*k) * (uNext(1) - uPrev(1)); 
     wNext = 2 * w + lambdaSq * Dxxw * w - wPrev;
     wNext(1) = wNext(1) + SHalf(length(u)-1) ./ SBar(length(u)-1) * lambdaSq * interpolatedPoints(2);
     

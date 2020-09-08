@@ -82,7 +82,7 @@ potScalingW(1) = 0.5;
 for n = 1:lengthSound
     %% Calculate velocities before lip model
     uvNext(1:end-1) = uv(1:end-1) - lambda / (rho * c) * (up(2:end) - up(1:end-1));
-    uvNext(end) = uv(end) - lambda / (rho * c) * (wp(2) - wp(1));
+    uvNext(end) = uv(end) - lambda / (rho * c) * (wp(2) - up(end));
     
     wvNext(2:end) = wv(2:end) - lambda / (rho * c) * (wp(3:end) - wp(2:end-1));
     wvNext(1) = wv(1) - lambda / (rho * c) * (wp(2) - wp(1));
@@ -92,7 +92,7 @@ for n = 1:lengthSound
     upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNext(end) - SHalf(length(up) - 1) .* uvNext(length(up) - 1));
     
     wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
-    wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNext(end) - SHalf(length(up) - 1) .* uvNext(length(up) - 1));
+    wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* uvNext(length(up) - 1));
 
     %% Set output from output position
     out(n) = wp(end-5);

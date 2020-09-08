@@ -32,8 +32,8 @@ lambdaSq = (c * k / h)^2    % Courant number
 
 a1 = 1 / (2 * (0.8216)^2 * c);              % loss term
 a2 = L / (0.8216 * sqrt(S(1)*S(N)/pi));     % inertia coefficient
-% a1 = 0;
-% a2 = 0;
+a1 = 0;
+a2 = 0;
 
 %Initialise states
 uNext = zeros(ceil(N/2) + 1, 1);
@@ -115,7 +115,7 @@ ew = ones(length(w), 1);
 Dxxw = spdiags([([SHalf(length(u)-1:end-1)./SBar(length(u):end-1); 2; 0]) -2*ew ([0; SHalf(length(u)-1:end)./SBar(length(u)-1:end-1)])], -1:1, length(w),length(w));
 
 interpolatedPoints = [0; 0];
-changeC = true;
+changeC = false;
 interpol = "cubic";
 for n = 1:lengthSound
     % change wave speed
@@ -229,7 +229,7 @@ for n = 1:lengthSound
     wNext(1) = wNext(1) + SHalf(length(u)-1) ./ SBar(length(u)-1) * lambdaSq * interpolatedPoints(2);
     
 %     uNext(1) = uNext(1) + 2 * h * lambdaSq * SOnemh / SBar(1) * in(n);
-    wNext(end) = (wNext(end) + h * lambdaSq * SNph / SBar(N) * (a1/k - a2) * wPrev(end)) / (1 + lambdaSq * SNph / SBar(N) * h * (a1/k + a2));
+%     wNext(end) = (wNext(end) + h * lambdaSq * SNph / SBar(N) * (a1/k - a2) * wPrev(end)) / (1 + lambdaSq * SNph / SBar(N) * h * (a1/k + a2));
 
 
     % set output from output position
@@ -295,7 +295,7 @@ for n = 1:lengthSound
 
         plot(sqrt(S) * amp, 'k');
         plot(-sqrt(S) * amp, 'k');
-        xlim([1 N]);
+        xlim([0 N]);
         ylim([-max(sqrt(S)) max(sqrt(S))] * amp * 1.1);
         title("Pressure potential. n = " + num2str(n))
 
@@ -351,7 +351,7 @@ function [S, SHalf, SBar] = setTube(N)
 %     load Ssave.mat
 %     S = Ssave;
 %     S(N/2-6:N/2+6) = 0.1;
-
+    S = linspace(0.001, 0.005, N)';
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;           	% mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

@@ -7,7 +7,7 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 10000;
+drawSpeed = 1;
 centered = true;
 
 fs = 44100;             % Sample rate (Hz)
@@ -20,10 +20,12 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-L = 1;                  % Length
 
+Ninit = 60.0;
+L = Ninit * h;          % Length
 N = floor(L/h);         % Number of points (-)
-h = L/N;                % Recalculate gridspacing from number of points
+alf = Ninit - N;
+N = floor(L/h);         % Number of points (-)
 
 lambda = c * k / h      % courant number
 
@@ -35,8 +37,8 @@ lambda = c * k / h      % courant number
 %% Initialise states
 upNext = zeros(ceil(N/2) + 1, 1);
 up = zeros(ceil(N/2) + 1, 1);
-uvNext = zeros(ceil(N/2) + 1, 1); 
-uv = zeros(ceil(N/2) + 1, 1);
+uvNext = zeros(ceil(N/2), 1); 
+uv = zeros(ceil(N/2), 1);
 
 up(floor(length(up) / 4 - 5):floor(length(up)/4) + 5) = hann(11);
 
@@ -74,25 +76,56 @@ kinScalingW(1) = 1 / 2;
 kinScalingW(end) = 1 / 2;
 
 potScalingU = ones(length(uv),1);
-potScalingU(end) = 0.5;
+% potScalingU(end) = 0.5;
 
 potScalingW = ones(length(wv),1);
-potScalingW(1) = 0.5;
+% potScalingW(1) = 0.5;
+
+ip = [alf * (alf - 1) * (alf - 2) / -6, ...
+                (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
+                alf * (alf + 1) * (alf - 2) / -2, ...
+                alf * (alf + 1) * (alf - 1) / 6];
+         
+SBarI = SBar(length(uv)-1:length(uv)+2) .* ip';
+wpInterpPrev = 0;
+uvInterpPrev = 0;
 
 for n = 1:lengthSound
-    %% Calculate velocities before lip model
-    uvNext(1:end-1) = uv(1:end-1) - lambda / (rho * c) * (up(2:end) - up(1:end-1));
-    uvNext(end) = uv(end) - lambda / (rho * c) * (wp(2) - up(end));
     
-    wvNext(2:end) = wv(2:end) - lambda / (rho * c) * (wp(3:end) - wp(2:end-1));
-    wvNext(1) = wv(1) - lambda / (rho * c) * (wp(2) - wp(1));
+    %% Calculate velocities
+    wpInterp = alf * wp(1) + (1-alf) * wp(2);
+
+    uvNext(1:end) = uv(1:end) - lambda / (rho * c) * (up(2:end) - up(1:end-1));
+%     A = [1, -ip(4), 0, 0, 0; ...
+%          1, 0, 0, -rho * c * lambda / SBarI * SHalf(length(uv)), rho * c * lambda / SBarI * SHalf(length(uv)+1); ...
+%          0, 0, 1, -ip(3), -ip(4); ...
+%          0, -lambda / (rho * c), 1, 0, 0];
+%     v = [ip(1) * wp(3) + ip(2) * wp(2) + ip(3) * wp(1); ...
+%          wpInterpPrev; ...
+%          ip(1) * uvNext(end-2) + ip(2) * uvNext(end-1); ...
+%          uv(end) + lambda / (rho * c) * up(end); ...
+%          uvInterpPrev - lambda / (rho * c) * wp(1)];
+%      
+%     solut = A \ v;
+%     wpInterp = solut(1);
+%     wpMin1 = solut(2);
+%     uvInterp = solut(3);
+%     uvNext(end) = solut(4);
+%     uvMph = solut(5);
+%     check = uv(end) - lambda / (rho * c) * (wpInterp - up(end));
+%     uvNext(end) - check
+%     uvNext(end) = uv(end) - lambda / (rho * c) * (wpInterp - up(end));
+    wvNext(1:end) = wv(1:end) - lambda / (rho * c) * (wp(2:end) - wp(1:end-1));
+%     wvNext(1) = wv(1) - lambda / (rho * c) * (wp(2) - wp(1));
 
     %% Calculate pressure
+    uvInterp = (1 - alf) * uvNext(end-1) + alf * uvNext(end);
+
     upNext(upRange) = up(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uvNext(upRange) - SHalf(upRange-1) .* uvNext(upRange-1));
-    upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNext(end) - SHalf(length(up) - 1) .* uvNext(length(up) - 1));
+    upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* uvNext(end));
     
     wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
-    wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* uvNext(length(up) - 1));
+    wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* uvNext(end));
 
     %% Set output from output position
     out(n) = wp(end-5);
@@ -103,7 +136,7 @@ for n = 1:lengthSound
     totEnergyU(n) = kinEnergyU(n) + potEnergyU(n);
     
     kinEnergyW(n) = 1/(2 * rho * c^2) * h * sum (SBar(length(up):end) .* kinScalingW .* wp.^2);
-    potEnergyW(n) = rho / 2 * h * sum(SHalf(length(uv):end) .* potScalingW .* wvNext .* wv);
+    potEnergyW(n) = rho / 2 * h * sum(SHalf(length(uv)+1:end) .* potScalingW .* wvNext .* wv);
     totEnergyW(n) = kinEnergyW(n) + potEnergyW(n);
 
     totEnergy(n) = totEnergyU(n) + totEnergyW(n);
@@ -119,7 +152,7 @@ for n = 1:lengthSound
         hold on;
         plot(hLocsLeft * N / L, up, '-o');
         plot(hLocsRight * N / L, wp, '-o');
-        plot(hLocsLeft * N / L + 0.5, uvNext * 100, 'Marker', '.', 'MarkerSize', 10);
+        plot(hLocsLeft(1:end-1) * N / L + 0.5, uvNext * 100, 'Marker', '.', 'MarkerSize', 10);
         plot(hLocsRight(2:end) * N / L -0.5, wvNext * 100, 'Marker', '.', 'MarkerSize', 10);
 
         % Plot scaled energy
@@ -136,6 +169,8 @@ for n = 1:lengthSound
         
     wv = wvNext;
     wp = wpNext;
+
+    wpInterpPrev = wpInterp;
 
 end   
 

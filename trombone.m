@@ -10,6 +10,11 @@ drawThings = true;
 drawSpeed = 10000;
 centered = true;
 
+changeL = true;
+changeF0 = true;
+
+connectedToLip = true;
+
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
 lengthSound = fs * 3;   % Duration (s)
@@ -20,8 +25,7 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-
-Ninit = 360.0;
+Ninit = 1.1254 / h;
 L = Ninit * h;          % Length
 LInit = L;
 
@@ -32,7 +36,7 @@ N = floor(L/h);         % Number of points (-)
 lambda = c * k / h      % courant number
 
 %% Lip Collision
-Kcol = 100;
+Kcol = 0;
 alfCol = 5; 
 
 %% Set cross-sectional geometry
@@ -41,14 +45,24 @@ alfCol = 5;
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
 %% Lip variables
-f0 = 200;                   % fundamental freq lips
+% melody = [0, -1, -2, -3];
+
+multiplier = 2.^(-3/ 12);
+range = 1:lengthSound / 4;
+multiplierRange = zeros(lengthSound, 1);
+
+freqs = [300, 283.1623, 267.27, 252.2689];
+lengths = [1.1254, 1.1852, 1.2590, 1.3282];
+for i = 1:4
+    freqsRange(range + length(range) * (i-1)) = freqs(i);
+    lengthRange(range + length(range) * (i-1)) = lengths(i);
+end
+f0Init = 300;                  % fundamental freq lips
 M = 5.37e-5;                % mass lips
-omega0 = 2 * pi * f0;   % angular freq
+omega0 = 2 * pi * f0Init;   % angular freq
 
 sig = 5;                % damping
 H0 = 2.9e-4;                % equilibrium
-
-connectedToLip = false;
 y = 0;                      % initial lip state
 
 if connectedToLip
@@ -61,7 +75,7 @@ else
     yPrev = 0;
 end
 
-amp = 30000;                 % input pressure (Pa)
+amp = 3000;                 % input pressure (Pa)
 
 %% Initialise states
 upNext = zeros(ceil(N/2) + 1, 1);
@@ -69,7 +83,9 @@ up = zeros(ceil(N/2) + 1, 1);
 uvNext = zeros(ceil(N/2), 1); 
 uv = zeros(ceil(N/2), 1);
 
-up(floor(length(up) / 4 - 5):floor(length(up)/4) + 5) = hann(11);
+if ~connectedToLip
+    up(floor(length(up) / 4 - 5):floor(length(up)/4) + 5) = hann(11);
+end
 
 wpNext = zeros(floor(N/2) + 1, 1);
 wp = zeros(floor(N/2) + 1, 1);
@@ -125,9 +141,6 @@ SBarI = SBar(length(uv)-1:length(uv)+2) .* ip';
 uvMph = 0;
 wvmh = 0;
 
-changeL = true;
-
-%
 psiPrev = 0;
 etaC = 0;
 
@@ -152,15 +165,35 @@ z4 = (z2 + 1) / (2 * R2) + (Cr * z2 - Cr) / k;
     
 p1 = 0;
 v1 = 0;
+
+filterCoeff = 0.9999;
+Pmprev = 0;
+
+% multiplierVec = reshape(repmat(multiplier, lengthSound / 4, 1), lengthSound, 1);
 for n = 1:lengthSound
     
     % change wave speed
     if changeL
-        L = LInit * (1+0.2*n/fs);%* sin(0.5 * pi * n/fs));
+        LPrev = L;
+        filterCoeff = 0.9999;
+%         L = (1-filterCoeff) * LInit * 1/multiplierVec(n) + filterCoeff * LPrev;%* sin(0.5 * pi * n/fs));
+%         L = LInit * (1 + 0.5 * n / fs);
+        L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
     else
         L = L;
     end
     
+    if changeF0
+%         f0 = f0Init * multiplierVec(n);
+        f0 = freqsRange(n);
+        omega0 = 2 * pi * f0;
+    else
+        f0 = f0Init;
+        omega0 = 2 * pi * f0;
+
+    end
+    LSave(n) = L;
+    f0Save(n) = f0;
     % save previous state for comparison later
     NPrev = N;
 
@@ -269,12 +302,20 @@ for n = 1:lengthSound
     wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - solut(1));
     
     %% Variable input force
-    ramp = 1000;
-    if n < ramp
-        Pm = amp * n / ramp;
-    else
-        Pm = amp;
+    Pm = filterCoeff * Pmprev + (1 - filterCoeff) * amp;
+    Pmprev = Pm;
+    if n+100 <= lengthSound
+
+        if lengthRange(n+1) ~= lengthRange(n)
+            Pmprev = 0;
+        end
     end
+%     ramp = 1000;
+%     if n < ramp
+%         Pm = amp * n / ramp;
+%     else
+%         Pm = amp;
+%     end
 
     %% Collision
     barr = -H0;
@@ -323,7 +364,7 @@ for n = 1:lengthSound
     
     wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
     wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
-%     wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
+    wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
 
     v1Next = v1 + k / (2 * Lr) * (wpNext(end) + wp(end));
     p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;

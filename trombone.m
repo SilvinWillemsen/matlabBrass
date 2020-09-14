@@ -1,5 +1,5 @@
 %{
-    First order brass with coupled lip model
+    Full trombone: lip, dynamic tube with proper geometry, radiation 
 %}
 
 clear all;
@@ -8,16 +8,19 @@ close all;
 % drawing variables
 drawThings = true;
 drawSpeed = 10000;
+drawStart = 0;
+drawSpeedInit = drawSpeed;
 centered = true;
 
-changeL = true;
-changeF0 = true;
+changeL = false;
+changeF0 = false;
+radiation = true;
 
 connectedToLip = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs * 3;   % Duration (s)
+lengthSound = fs;   % Duration (s)
 
 %% viscothermal effects
 T = 26.85;
@@ -25,7 +28,13 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-Ninit = 1.1254 / h;
+LnonExtended = 2.658;
+%%% Lines added for perfect N (and so perfect energy)
+% Ninit = floor(LnonExtended / h);
+% LnonExtended = Ninit * h;
+%%%
+Ninit = LnonExtended / h;
+NnonExtended = floor(Ninit);
 L = Ninit * h;          % Length
 LInit = L;
 
@@ -40,23 +49,26 @@ Kcol = 0;
 alfCol = 5; 
 
 %% Set cross-sectional geometry
-[S, SHalf, SBar] = setTube (N+1);
+[S, SHalf, SBar] = setTube (N+1, NnonExtended, 0);
 
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
-%% Lip variables
-% melody = [0, -1, -2, -3];
-
-multiplier = 2.^(-3/ 12);
-range = 1:lengthSound / 4;
+%% Melody
+melody = 0:-1:-12;
+melody = [melody, fliplr(melody)];
+multiplier = 2.^(-melody./ 12);
+range = 1:ceil(lengthSound / length(melody));
 multiplierRange = zeros(lengthSound, 1);
 
-freqs = [300, 283.1623, 267.27, 252.2689];
-lengths = [1.1254, 1.1852, 1.2590, 1.3282];
-for i = 1:4
-    freqsRange(range + length(range) * (i-1)) = freqs(i);
+% freqs = [300, 283.1623, 267.27, 252.2689];
+% lengths = [1.1254, 1.1852, 1.2590, 1.3282];
+lengths = LnonExtended * multiplier;
+for i = 1:length(melody)
+%     freqsRange(range + length(range) * (i-1)) = freqs(i);
     lengthRange(range + length(range) * (i-1)) = lengths(i);
 end
+
+%% Lip variables
 f0Init = 300;                  % fundamental freq lips
 M = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0Init;   % angular freq
@@ -84,7 +96,9 @@ uvNext = zeros(ceil(N/2), 1);
 uv = zeros(ceil(N/2), 1);
 
 if ~connectedToLip
-    up(floor(length(up) / 4 - 5):floor(length(up)/4) + 5) = hann(11);
+    inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
+    up(floor(inputRange)) = up(inputRange) + hann(11);
+%     up(1:end-1) = rand(length(up)-1, 1);
 end
 
 wpNext = zeros(floor(N/2) + 1, 1);
@@ -168,24 +182,27 @@ v1 = 0;
 
 filterCoeff = 0.9999;
 Pmprev = 0;
-
+flag = false;
 % multiplierVec = reshape(repmat(multiplier, lengthSound / 4, 1), lengthSound, 1);
 for n = 1:lengthSound
-    
+    [S, SHalf, SBar] = setTube (N+1, NnonExtended, n);
+
     % change wave speed
     if changeL
         LPrev = L;
         filterCoeff = 0.9999;
 %         L = (1-filterCoeff) * LInit * 1/multiplierVec(n) + filterCoeff * LPrev;%* sin(0.5 * pi * n/fs));
 %         L = LInit * (1 + 0.5 * n / fs);
-        L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
+        L = LInit * (2^sin(2 * pi * n/lengthSound));
+%         L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
     else
         L = L;
     end
     
     if changeF0
 %         f0 = f0Init * multiplierVec(n);
-        f0 = freqsRange(n);
+%         f0 = freqsRange(n);
+        f0 = f0Init * (1 + 0.05 * sin(2 * pi * 4 * n / fs));
         omega0 = 2 * pi * f0;
     else
         f0 = f0Init;
@@ -207,7 +224,13 @@ for n = 1:lengthSound
     lambda = c * k / h;
 
     alf = (Ninit - N);
-  
+%     if (alf < 0.1 && ~flag)
+%         drawSpeed = 1;
+%         flag = true;
+%     elseif (alf > 0.1 && alf < 0.9 && flag)
+%         drawSpeed = drawSpeedInit;
+%         flag = false;
+%     end
     % calculate interpolator
 %     if interpol == "cubic"
         ip = [alf * (alf - 1) * (alf - 2) / -6, ...
@@ -233,7 +256,7 @@ for n = 1:lengthSound
 %             uv = [uv; (ip(4) * uv(end-1) + ip(3) * uv(end) + ip(2) * wv(1) + ip(1) * wv(2))];
             uvNext = [uv; uvNextMph];
             uv = [uv; uvMph];
-            uvMph =  customIp * [uv(end-1:end); wv(1:2)];% should be properly interpolated
+            uvMph =  customIp * [uv(end-1:end); wv(1:2)];
             upNext = [upNext; customIp * [upNext(end-1:end); wpNext(1:2)]];
             up = [up; customIp * [up(end-1:end); wp(1:2)]];
             
@@ -247,7 +270,7 @@ for n = 1:lengthSound
             wp = [(customIp(4) * up(end-1) + customIp(3) * up(end) + customIp(2) * wp(1) + customIp(1) * wp(2)); wp];
                
         end
-        [S, SHalf, SBar] = setTube(N+1);
+        [S, SHalf, SBar] = setTube(N+1, NnonExtended,n);
         % insert matrix creation here
         
         potScalingU = ones(length(up),1);
@@ -261,7 +284,7 @@ for n = 1:lengthSound
     % remove point if N^n < N^{n-1}
     if N < NPrev
         if mod(N,2) == 0
-            uvMph =  uv(end);
+            uvMph = uv(end);
             uvNext = uvNext(1:end-1);
             uv = uv(1:end-1);
             upNext = upNext(1:end-1);
@@ -275,13 +298,16 @@ for n = 1:lengthSound
             wp = wp(2:end);
 
         end
-        [S, SHalf, SBar] = setTube(N+1);
+        if flag
+            disp("point removed")
+        end
+        [S, SHalf, SBar] = setTube(N+1, NnonExtended, n);
         
         potScalingU = ones(length(up),1);
         potScalingW = ones(length(wp),1);
         potScalingU(1) = 0.5;
         potScalingW(end) = 0.5;
-        potScalingU(end) = 0.5
+        potScalingU(end) = 0.5;
         potScalingW(1) = 0.5;
 
     end
@@ -302,21 +328,27 @@ for n = 1:lengthSound
     wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - solut(1));
     
     %% Variable input force
-    Pm = filterCoeff * Pmprev + (1 - filterCoeff) * amp;
-    Pmprev = Pm;
-    if n+100 <= lengthSound
-
-        if lengthRange(n+1) ~= lengthRange(n)
-            Pmprev = 0;
-        end
-    end
-%     ramp = 1000;
-%     if n < ramp
-%         Pm = amp * n / ramp;
-%     else
-%         Pm = amp;
+%     Pm = filterCoeff * Pmprev + (1 - filterCoeff) * amp;
+%     Pmprev = Pm;
+%     if n+100 <= lengthSound
+% 
+%         if lengthRange(n+1) ~= lengthRange(n)
+%             if ~connectedToLip
+% %                 inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
+% %                 up(floor(inputRange)) = up(inputRange) + hann(11);
+%             else
+%                 Pmprev = 0;
+%             end
+%         end
 %     end
+    ramp = 1000;
+    if n < ramp
+        Pm = amp * n / ramp;
+    else
+        Pm = amp;
+    end
 
+    
     %% Collision
     barr = -H0;
     etaC = barr - y;
@@ -364,8 +396,9 @@ for n = 1:lengthSound
     
     wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
     wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
-    wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
-
+    if radiation
+        wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
+    end
     v1Next = v1 + k / (2 * Lr) * (wpNext(end) + wp(end));
     p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
 
@@ -405,11 +438,11 @@ for n = 1:lengthSound
     scaledTotEnergy(n) = (totH(n) - totH(1) + dampEnergy(n)) / 2^floor(log2(totH(1)));
 
     %% Draw things
-    if drawThings && mod (n, drawSpeed) == 0
+    if drawThings && mod (n, drawSpeed) == 0 && n> drawStart
         hLocsLeft = (0:(length(up))-1) * h;
         hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
 %         % Plot the velocity
-% %         subplot(4,1,1)
+%         subplot(4,1,1)
 %         cla
 %         hold on;
 % %         plotPressurePotential (p / 10000, sqrt(S));
@@ -446,11 +479,17 @@ for n = 1:lengthSound
         hold on;
         plot(hLocsLeft / L, up, '-o');
         plot(hLocsRight / L, wp, '-o');
-        plot(hLocsLeft(1:end) / L + 0.5 / N, [uvNext; uvNextMph] * 100, 'Marker', '.', 'MarkerSize', 10);
-        plot(hLocsRight(1:end) / L - 0.5 / N, [wvNextmh; wvNext] * 100, 'Marker', '.', 'MarkerSize', 10);
-%         xlim([0.4 0.6])
-%         ylim([-1 1])
-        % Plot scaled energy
+        plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] * 100, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+        plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] * 100, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+        plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph * 100, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+        plot(hLocsRight(1) / L - 0.5 / N, wvNextmh * 100, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+
+        %         plot([hLocsLeft, hLocsRight(2:end)] / L, sqrt(S / pi) * 10, 'k');
+%         plot([hLocsLeft, hLocsRight(2:end)] / L, -sqrt(S / pi) * 10, 'k');
+
+%         xlim([0.49 0.51])
+        ylim([-10000 10000])
+%         Plot scaled energy
         subplot(3,1,2)
         plot(out(1:n))
 %         hold off
@@ -461,7 +500,7 @@ for n = 1:lengthSound
         subplot(3,1,3)
         plot(scaledTotEnergy(2:n))
 %         plot(totH(1:n));
-        drawnow;
+        pause(0.5)
         drawnow;
         
         
@@ -484,19 +523,35 @@ for n = 1:lengthSound
     y = yNext(n);
     psiPrev = psi; 
 
-end   
+end
 
-function [S, SHalf, SBar] = setTube(N)
-    mp = linspace(0.001, 0.001, floor(N/40));           % mouthpiece
-    m2t = linspace(mp(end), 0.0005, floor(N/40));       % mouthpiece to tube
+function [S, SHalf, SBar] = setTube(N, NnonExtended, n)
+    lengths = [0.708, 0.177, 0.711, 0.241, 0.254, 0.502];
+    radii = [0.0069, 0.0072, 0.0069, 0.0071, 0.0075, 0.0107]; % two radii for tuning slide
+
+    lengthN = round(NnonExtended * lengths ./ sum(lengths));
+    inner1 = ones(lengthN(1), 1) * radii(1);
+    inner2 = ones(lengthN(3), 1) * radii(3);
+    gooseneck = ones(lengthN(4), 1) * radii(4);
+    tuning = linspace(radii(5), radii(6), lengthN(5))';
     
-    alpha = 0.25;                                       % bell
-    b = m2t(end) * exp(alpha * (0:18));
-    pointsLeft = N - length([mp, m2t, b]);
-    tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
+    x0 = 0.0174; 
+    b = 0.0063;
+    flare = 0.7;
+    bellL = lengthN(end);
+    
+    bell = b * ((0.502:-0.502 / (bellL - 1):0) + x0).^(-flare);
+%     pointsLeft = N - length([mp, m2t, bell]);
+%     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
+    totLengthN = length(inner1) + length(inner2) + length(gooseneck) + length(tuning) + length(bell);
 
-    S = [mp, m2t, tube, b]';                            % True geometry
-%     S = 0.005 * (ones(length(S), 1));
+    slide = ones(N - totLengthN, 1) * radii(2);
+    totRadii = [inner1; slide; inner2; gooseneck; tuning; bell'];
+    
+    % True geometry
+    S = totRadii.^2 * pi;
+%     S = 1 + 1 * 0.5 * (1 + sin(2 * pi * 100 * n / 44100)) * (ones(length(S), 1));
+
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

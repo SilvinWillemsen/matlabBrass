@@ -115,12 +115,12 @@ ew = ones(length(w), 1);
 Dxxw = spdiags([([SHalf(length(u)-1:end-1)./SBar(length(u):end-1); 2; 0]) -2*ew ([0; SHalf(length(u)-1:end)./SBar(length(u)-1:end-1)])], -1:1, length(w),length(w));
 
 interpolatedPoints = [0; 0];
-changeC = false;
+changeC = true;
 interpol = "cubic";
 for n = 1:lengthSound
     % change wave speed
     if changeC
-        c = cInit * (1-0.2 * n/fs);%* sin(0.5 * pi * n/fs));
+        c = cInit * (1-0.21 * n/fs);%* sin(0.5 * pi * n/fs));
     else
         c = c;
     end
@@ -156,14 +156,21 @@ for n = 1:lengthSound
     
     % add point if N^n > N^{n-1}
     if N > NPrev
+        if n > 55110
+            disp("wait");
+        end
+        customIp = [alf * (alf + 1) / -((alf + 2) * (alf + 3)); ...
+                        2 * alf * (alf + 1) / ((alf + 1) * (alf + 2)); ...
+                        2 * (alf + 1) / ((alf + 2) * (alf + 1)); ...
+                        2 * alf / -((alf + 3) * (alf + 2))];
         if mod(N,2) == 1
-            uNext = [uNext; (ip(4) * uNext(end-1) + ip(3) * uNext(end) + ip(2) * wNext(1) + ip(1) * wNext(2))];
-            u = [u; (ip(4) * u(end-1) + ip(3) * u(end) + ip(2) * w(1) + ip(1) * w(2))];
-            uPrev = [uPrev; (ip(4) * uPrev(end-1) + ip(3) * uPrev(end) + ip(2) * wPrev(1) + ip(1) * wPrev(2))];
+            uNext = [uNext; (customIp(1) * uNext(end-1) + customIp(2) * uNext(end) + customIp(3) * wNext(1) + customIp(4) * wNext(2))];
+            u = [u; (customIp(1) * u(end-1) + customIp(2) * u(end) + customIp(3) * w(1) + customIp(4) * w(2))];
+            uPrev = [uPrev; (customIp(1) * uPrev(end-1) + customIp(2) * uPrev(end) + customIp(3) * wPrev(1) + customIp(4) * wPrev(2))];
         else 
-            wNext = [(ip(1) * uNext(end-1) + ip(2) * uNext(end) + ip(3) * wNext(1) + ip(4) * wNext(2)); wNext];
-            w = [(ip(1) * u(end-1) + ip(2) * u(end) + ip(3) * w(1) + ip(4) * w(2)); w];
-            wPrev = [(ip(1) * uPrev(end-1) + ip(2) * uPrev(end) + ip(3) * wPrev(1) + ip(4) * wPrev(2)); wPrev];
+            wNext = [(customIp(4) * uNext(end-1) + customIp(3) * uNext(end) + customIp(2) * wNext(1) + customIp(1) * wNext(2)); wNext];
+            w = [(customIp(4) * u(end-1) + customIp(3) * u(end) + customIp(2) * w(1) + customIp(1) * w(2)); w];
+            wPrev = [(customIp(4) * uPrev(end-1) + customIp(3) * uPrev(end) + customIp(2) * wPrev(1) + customIp(1) * wPrev(2)); wPrev];
         end
         [S, SHalf, SBar] = setTube(N);
         % insert matrix creation here
@@ -351,7 +358,7 @@ function [S, SHalf, SBar] = setTube(N)
 %     load Ssave.mat
 %     S = Ssave;
 %     S(N/2-6:N/2+6) = 0.1;
-    S = linspace(0.001, 0.005, N)';
+%     S = linspace(0.001, 0.005, N)';
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;           	% mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

@@ -8,7 +8,7 @@ close all;
 % drawing variables
 drawThings = true;
 drawStart = 1;
-drawSpeed = 1;
+drawSpeed = 10;
 centered = true;
 
 fs = 44100;             % Sample rate (Hz)
@@ -23,7 +23,7 @@ cInit = c;
 %% Tube variables
 h = c * k;              % Grid spacing (m)
 
-Ninit = 60.0;
+Ninit = 60.001;
 L = Ninit * h;          % Length
 N = floor(L/h);         % Number of points (-)
 alf = Ninit - N;
@@ -86,12 +86,12 @@ SBarI = SBar(length(uv)-1:length(uv)+2) .* ip';
 uvMph = 0;
 wvmh = 0;
 
-changeC = true;
+changeC = false;
 for n = 1:lengthSound
     
     % change wave speed
     if changeC
-        c = cInit * (1+18 * n/fs);%* sin(0.5 * pi * n/fs));
+        c = cInit * (1+ n/fs);%* sin(0.5 * pi * n/fs));
     else
         c = c;
     end
@@ -184,13 +184,14 @@ for n = 1:lengthSound
         potScalingW = ones(length(wp),1);
         potScalingU(1) = 0.5;
         potScalingW(end) = 0.5;
-        potScalingU(end) = 0.5;
+        potScalingU(end) = 0.5
         potScalingW(1) = 0.5;
 
     end
     upRange = 2:length(up)-1;         % range without boundaries
     wpRange = 2:length(wp)-1;
 
+    alfSave(n) = alf;
     A = [1, -ip(4); ...
          -ip(4), 1];
     v = [ip(1) * up(end-2) + ip(2) * up(end-1) + ip(3) * up(end); ...
@@ -205,8 +206,6 @@ for n = 1:lengthSound
     wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - solut(1));
     
     %% Calculate pressure
-    uvInterp = (1 - alf) * uvNext(end-1) + alf * uvNext(end);
-
     upNext(upRange) = up(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uvNext(upRange) - SHalf(upRange-1) .* uvNext(upRange-1));
     upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNextMph - SHalf(length(up) - 1) .* uvNext(end));
     
@@ -233,7 +232,7 @@ for n = 1:lengthSound
         hLocsRight = flip(L - ((0:(length(wp)-1)) * h));        
         
         % Plot the velocity
-        subplot(2,1,1)
+        subplot(4,1,1)
         cla
         hold on;
         plot(hLocsLeft / L, up, '-o');
@@ -243,8 +242,17 @@ for n = 1:lengthSound
 %         xlim([0.4 0.6])
         ylim([-1 1])
         % Plot scaled energy
-        subplot(2,1,2)
-        plot(totEnergy(1:n) / totEnergy(1) - 1)
+        subplot(4,1,2)
+        hold off
+        plot(kinEnergyU(1:n) + kinEnergyW(1:n))
+        hold on;
+        plot(potEnergyU(1:n) + potEnergyW(1:n))
+%         plot(totEnergy(1:n) / totEnergy(1) - 1)
+        subplot(4,1,3)
+        plot(totEnergy(1:n) - totEnergy(1))
+        
+        subplot(4,1,4)
+        plot(alfSave(1:n))
         pause(0.05);
         drawnow;
         

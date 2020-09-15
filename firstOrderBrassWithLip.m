@@ -7,7 +7,7 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 10000;
+drawSpeed = 1;
 centered = true;
 
 fs = 44100;             % Sample rate (Hz)
@@ -20,7 +20,7 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-L = 1;                  % Length
+L = 0.5;                  % Length
 
 N = floor(L/h);         % Number of points (-)
 h = L/N;                % Recalculate gridspacing from number of points
@@ -58,7 +58,7 @@ v = zeros(N-1, 1);
 amp = 30000;                 % input pressure (Pa)
 
 in = zeros(lengthSound, 1);
-% p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = hann(11);
+p(floor(2*N / 3) - 5 : floor(2*N / 3) + 5) = 10000 * hann(11);
 
 % Initialise output
 out = zeros (lengthSound, 1);
@@ -125,7 +125,7 @@ p1 = 0;
 v1 = 0;
 for n = 1:lengthSound
     %% Calculate velocities before lip model
-    vNext(vRange) = v(vRange) - lambda / (rho * c) * (p(vRange+1) - p(vRange));
+    vNext = v - lambda / (rho * c) * (p(vRange+1) - p(vRange));
     
     %% Variable input force
     ramp = 1000;
@@ -217,38 +217,39 @@ for n = 1:lengthSound
 
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0
-        
+        hLocs = (0:length(p)-1) * h;
         % Plot the velocity
-        subplot(4,1,1)
+%         subplot(4,1,1)
         cla
         hold on;
-        plotPressurePotential (p / 10000, sqrt(S));
-        plot(p / 100000)
-        plot(sqrt(S), 'k');
-        plot(-sqrt(S), 'k');
-        xlim([1 N]);
+%         plotPressurePotential (p / 10000, sqrt(S));
+%         plot(p / 100000)
+%         plot(sqrt(S), 'k');
+%         plot(-sqrt(S), 'k');
+        plot(hLocs * N / L, p, '-o');
+%         xlim([1 N]);
 %         scatter(1, (y + H0) * 10000)
-        ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
-        title("Pressure");
+%         ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
+%         title("Pressure");
         
-        % Plot the velocity
-        subplot(4,1,2)
-        cla;
-        plot(vNext);
-        hold on;
-        plot(sqrt(S) * amp, 'k');
-        plot(-sqrt(S) * amp, 'k');
-        xlim([1 N]);
-        title("Particle Velocity")
-
+%         % Plot the velocity
+%         subplot(4,1,2)
+%         cla;
+        plot(hLocs(1:end-1) * N / L + 0.5, vNext * 100, 'Marker', '.', 'MarkerSize', 10);
+%         hold on;
+%         plot(sqrt(S) * amp, 'k');
+%         plot(-sqrt(S) * amp, 'k');
+%         xlim([1 N]);
+%         title("Particle Velocity")
+pause(0.2)
         % Plot the output
-        subplot(4,1,3)
-        plot(out(1:n))
-        
-        % Plot scaled energy
-        subplot(4,1,4)
-        plot(scaledTotEnergy(2:n))
-%         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
+%         subplot(4,1,3)
+%         plot(out(1:n))
+%         
+%         % Plot scaled energy
+%         subplot(4,1,4)
+%         plot(scaledTotEnergy(2:n))
+% %         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
         drawnow;
         
     end

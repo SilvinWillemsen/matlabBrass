@@ -2,27 +2,34 @@
     Full trombone: lip, dynamic tube with proper geometry, radiation 
 %}
 
-clear all;
+% clear all;
 close all;
 
 % drawing variables
 drawThings = true;
-drawSpeed = 10000;
-drawStart = 0;
+drawSetting = 1; % change to 0 to go back to previous drawing
+
+drawSpeed = 2;
+drawStart = 100;
 drawSpeedInit = drawSpeed;
+
+dontInterpolateAtStart = true;
+
 centered = true;
 
 changeL = true;
 changeF0 = true;
 radiation = true;
 
-connectedToLip = true;
+connectedToLip = false;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
 lengthSound = fs * 5;   % Duration (s)
 
 LnonExtended = 2.658;
+% LnonExtended = 2.685;
+
 % LnonExtended = 0.999959410430839;
 %% viscothermal effects
 T = 26.85;
@@ -31,13 +38,15 @@ T = 26.85;
 %% Melody
 % melody = [0, -1, -3, -5, -7, -8, -10, -12];
 melody = [-10, -11, -12, -13, -13];
+melody = 12 * log2(300/520);
 % melody = [melody, fliplr(melody)];
-multiplier = 2.^(melody./ 12);
+% multiplier = 2.^(melody./ 12);
+multiplier = 1;
 range = 1:ceil(lengthSound / length(melody));
 multiplierRange = zeros(lengthSound, 1);
 
-freqs = 520 * multiplier;
-lengths = LnonExtended ./ multiplier;
+freqs = 300;
+% freqs = 520 * multiplier;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
@@ -46,6 +55,12 @@ h = c * k;              % Grid spacing (m)
 % LnonExtended = Ninit * h;
 %%%
 Ninit = LnonExtended / h;
+if dontInterpolateAtStart
+    LnonExtended = floor(Ninit) * h;
+    Ninit = LnonExtended / h;
+end
+lengths = LnonExtended ./ multiplier;
+
 NnonExtended = floor(Ninit);
 
 lambda = c * k / h      % courant number
@@ -67,8 +82,8 @@ N = floor(L/h);         % Number of points (-)
 alf = Ninit - N;
 
 %% Lip Collision
-Kcol = 100;
-alfCol = 5; 
+Kcol = 10000;
+alfCol = 3; 
 
 %% Set cross-sectional geometry
 [S, SHalf, SBar, addPointsAt] = setTube (N+1, NnonExtended, 0);
@@ -84,12 +99,13 @@ omega0 = 2 * pi * f0Init;   % angular freq
 
 sig = 5;                % damping
 H0 = 2.9e-4;                % equilibrium
-y = 0.1 * H0;                      % initial lip state
+y = 0;                      % initial lip state
 
 if connectedToLip
-    w = 0.25e-2;                   % lip width
+%     w = 0.25e-2;                   % lip width
     Sr = 1.46e-5;               % lip area
-    yPrev = 0;                  % previous lip state
+    w = 0.01e-2;                   % lip width
+    yPrev = H0;                  % previous lip state
 else
     w = 0;
     Sr = 0;         
@@ -338,6 +354,10 @@ for n = 1:lengthSound
          ip(3) * wp(1) + ip(2) * wp(2) + ip(1) * wp(3)];
     solut = A \ v;
     
+    quadIp = [-(alf - 1) / (alf + 1), 1, (alf - 1) / (alf + 1)];
+    solut = [up(end-1) * quadIp(1) + up(end) * quadIp(2) + wp(1) * quadIp(3); ...
+            up(end) * quadIp(3) + wp(1) * quadIp(2) + wp(2) * quadIp(1)];
+    
     %% Calculate velocities
     uvNext = uv - lambda / (rho * c) * (up(2:end) - up(1:end-1));
     uvNextMph = uvMph - lambda / (rho * c) * (solut(2) - up(end));
@@ -346,9 +366,10 @@ for n = 1:lengthSound
     wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - solut(1));
     
 %     %% Variable input force
-    filterCoeffPm = 0.9995;
-    Pm = filterCoeffPm * Pmprev + (1 - filterCoeffPm) * amp;
-    Pmprev = Pm;
+%     filterCoeffPm = 0.9995;
+%     Pm = filterCoeffPm * Pmprev + (1 - filterCoeffPm) * amp;
+%     Pmprev = Pm;
+    Pm = amp * 6;
 %     if lengthRange(n+1) ~= lengthRange(n)
     if mod(n, lengthSound / length(melody)) == 0
         if ~connectedToLip
@@ -417,6 +438,9 @@ for n = 1:lengthSound
     v1Next = v1 + k / (2 * Lr) * (wpNext(end) + wp(end));
     p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
 
+    if v1Next ~= 0
+        disp("wait")
+    end
     %% Set output from output position
     out(n) = wp(end);
     
@@ -454,74 +478,88 @@ for n = 1:lengthSound
 
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0 && n> drawStart
-        hLocsLeft = (0:(length(up))-1) * h;
-        hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
-%         % Plot the velocity
-%         subplot(4,1,1)
-%         cla
-%         hold on;
-% %         plotPressurePotential (p / 10000, sqrt(S));
-% %         plot(p / 100000)
-% %         plot(sqrt(S), 'k');
-% %         plot(-sqrt(S), 'k');
-%         plot(hLocs * N / L, p, '-o');
-% %         xlim([1 N]);
-% %         scatter(1, (y + H0) * 10000)
-% %         ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
-% %         title("Pressure");
-%         
-% %         % Plot the velocity
-% %         subplot(4,1,2)
-% %         cla;
-%         plot(hLocs(1:end-1) * N / L + 0.5, vNext * 100, 'Marker', '.', 'MarkerSize', 10);
-% %         hold on;
-% %         plot(sqrt(S) * amp, 'k');
-% %         plot(-sqrt(S) * amp, 'k');
-% %         xlim([1 N]);
-% %         title("Particle Velocity")
-%         pause(0.2)
-%         % Plot the output
-% %         subplot(4,1,3)
-% %         plot(out(1:n))
-% %         
-% %         % Plot scaled energy
-% %         subplot(4,1,4)
-% %         plot(scaledTotEnergy(2:n))
-% % %         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
-% Plot the velocity
-        subplot(3,1,1)
-        cla
-        hold on;
-        plot(hLocsLeft / L, up, '-o');
-        plot(hLocsRight / L, wp, '-o');
-        plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-        plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-        plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-        plot(hLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-        test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
-        plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
-        plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
-        plot([hLocsLeft(1:end-1), hLocsRight] / L, sqrt(S / pi) * 100 * amp, 'k');
-        plot([hLocsLeft(1:end-1), hLocsRight] / L, -sqrt(S / pi) * 100 * amp, 'k');
-        %         plot([hLocsLeft, hLocsRight(2:end)] / L, sqrt(S / pi) * 10, 'k');
-%         plot([hLocsLeft, hLocsRight(2:end)] / L, -sqrt(S / pi) * 10, 'k');
+        if drawSetting == 0
+            hLocsLeft = (0:(length(up))-1) * h;
+            hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
+    %         % Plot the velocity
+    %         subplot(4,1,1)
+    %         cla
+    %         hold on;
+    % %         plotPressurePotential (p / 10000, sqrt(S));
+    % %         plot(p / 100000)
+    % %         plot(sqrt(S), 'k');
+    % %         plot(-sqrt(S), 'k');
+    %         plot(hLocs * N / L, p, '-o');
+    % %         xlim([1 N]);
+    % %         scatter(1, (y + H0) * 10000)
+    % %         ylim([-max(sqrt(S)) max(sqrt(S))] * 1.1);
+    % %         title("Pressure");
+    %         
+    % %         % Plot the velocity
+    % %         subplot(4,1,2)
+    % %         cla;
+    %         plot(hLocs(1:end-1) * N / L + 0.5, vNext * 100, 'Marker', '.', 'MarkerSize', 10);
+    % %         hold on;
+    % %         plot(sqrt(S) * amp, 'k');
+    % %         plot(-sqrt(S) * amp, 'k');
+    % %         xlim([1 N]);
+    % %         title("Particle Velocity")
+    %         pause(0.2)
+    %         % Plot the output
+    % %         subplot(4,1,3)
+    % %         plot(out(1:n))
+    % %         
+    % %         % Plot scaled energy
+    % %         subplot(4,1,4)
+    % %         plot(scaledTotEnergy(2:n))
+    % % %         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
+    % Plot the velocity
+            subplot(3,1,1)
+            cla
+            hold on;
+            plot(hLocsLeft / L, up, '-o');
+            plot(hLocsRight / L, wp, '-o');
+            plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+            plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+            plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+            plot(hLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+            test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
+            plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
+            plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
+            plot([hLocsLeft(1:end-1), hLocsRight] / L, sqrt(S / pi) * 100 * amp, 'k');
+            plot([hLocsLeft(1:end-1), hLocsRight] / L, -sqrt(S / pi) * 100 * amp, 'k');
+            %         plot([hLocsLeft, hLocsRight(2:end)] / L, sqrt(S / pi) * 10, 'k');
+    %         plot([hLocsLeft, hLocsRight(2:end)] / L, -sqrt(S / pi) * 10, 'k');
 
-%         xlim([0.49 0.51])
-        ylim([-amp * 10 amp * 10])
-%         Plot scaled energy
-        subplot(3,1,2)
-        plot(out(1:n))
-%         hold off
-%         plot(kinEnergyU(1:n) + kinEnergyW(1:n))
-%         hold on;
-%         plot(potEnergyU(1:n) + potEnergyW(1:n))
-%         plot(totEnergy(1:n) / totEnergy(1) - 1)
-        subplot(3,1,3)
-        plot(scaledTotEnergy(2:n))
-%         plot(totH(1:n));
-        pause(0.5)
-        drawnow;
-        
+    %         xlim([0.49 0.51])
+            ylim([-amp * 10 amp * 10])
+    %         Plot scaled energy
+            subplot(3,1,2)
+            plot(out(1:n))
+    %         hold off
+    %         plot(kinEnergyU(1:n) + kinEnergyW(1:n))
+    %         hold on;
+    %         plot(potEnergyU(1:n) + potEnergyW(1:n))
+    %         plot(totEnergy(1:n) / totEnergy(1) - 1)
+            subplot(3,1,3)
+            plot(scaledTotEnergy(2:n))
+    %         plot(totH(1:n));
+            pause(0.5)
+            drawnow;
+        else
+hold off;
+            plot(1:length(up), up);
+            hold on
+            plot(1:length(up), pState(n, 1:length(up))');
+            plot((1:length(wp)) + length(up) - 1, wp);
+            plot((1:length(wp)) + length(up) - 1, pState(n, (1:length(wp)) + length(up))');
+
+%             hold off;
+%             plot(1:length(up), up, '-o');
+%             hold on;   
+%             plot((1:length(wp))+length(up)-1, wp, '-o');
+            drawnow;
+        end
         
     end
 
@@ -572,7 +610,7 @@ function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n)
     % True geometry
     S = totRadii.^2 * pi;
 %     S = 1 + 1 * 0.5 * (1 + sin(2 * pi * 100 * n / 44100)) * (ones(length(S), 1));
-
+    S = ones(size(S));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

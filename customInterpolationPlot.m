@@ -1,4 +1,5 @@
-for alf = 0:0.01:2
+matSave = [];
+for alf = 0:0.01:10
     ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                 (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
                 alf * (alf + 1) * (alf - 2) / -2, ...
@@ -7,7 +8,11 @@ for alf = 0:0.01:2
                         2 * alf * (alf + 1) / ((alf + 1) * (alf + 2)); ...
                         2 * (alf + 1) / ((alf + 2) * (alf + 1)); ...
                         2 * alf / -((alf + 3) * (alf + 2))];
-    plot(customIp)
-    ylim([-1, 1])
+    matSave = [matSave; inv([1, -ip(4); -ip(4), 1])];
+%     hold off;
+%     plot(customIp)
+%     hold on;
+%     plot(ip)
+%     ylim([-1, 1])
     drawnow;
 end

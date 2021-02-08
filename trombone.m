@@ -7,10 +7,10 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSetting = 1; % change to 0 to go back to previous drawing
+drawSetting =1 ; % change to 0 to go back to previous drawing
 
-drawSpeed = 2;
-drawStart = 100;
+drawSpeed = 20;
+drawStart = 1;
 drawSpeedInit = drawSpeed;
 
 dontInterpolateAtStart = true;
@@ -21,7 +21,7 @@ changeL = true;
 changeF0 = true;
 radiation = true;
 
-connectedToLip = false;
+connectedToLip = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
@@ -104,7 +104,7 @@ y = 0;                      % initial lip state
 if connectedToLip
 %     w = 0.25e-2;                   % lip width
     Sr = 1.46e-5;               % lip area
-    w = 0.01e-2;                   % lip width
+    w = 0.01;                   % lip width
     yPrev = H0;                  % previous lip state
 else
     w = 0;
@@ -113,7 +113,7 @@ else
 end
 
 if connectedToLip
-    amp = 500;                 % input pressure (Pa)
+    amp = 3000;                 % input pressure (Pa)
 else
     amp = 100;
 end
@@ -385,7 +385,7 @@ for n = 1:lengthSound
 %     if n < ramp
 %         Pm = amp * n / ramp;
 %     else
-%         Pm = amp;
+        Pm = amp;
 %     end
 
     %% Collision
@@ -523,16 +523,16 @@ for n = 1:lengthSound
             plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
             plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
             plot(hLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-            test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
-            plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
-            plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
-            plot([hLocsLeft(1:end-1), hLocsRight] / L, sqrt(S / pi) * 100 * amp, 'k');
-            plot([hLocsLeft(1:end-1), hLocsRight] / L, -sqrt(S / pi) * 100 * amp, 'k');
+%             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
+%             plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
+%             plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
+%             plot([hLocsLeft(1:end-1), hLocsRight] / L, sqrt(S / pi) * 100 * amp, 'k');
+%             plot([hLocsLeft(1:end-1), hLocsRight] / L, -sqrt(S / pi) * 100 * amp, 'k');
             %         plot([hLocsLeft, hLocsRight(2:end)] / L, sqrt(S / pi) * 10, 'k');
     %         plot([hLocsLeft, hLocsRight(2:end)] / L, -sqrt(S / pi) * 10, 'k');
 
     %         xlim([0.49 0.51])
-            ylim([-amp * 10 amp * 10])
+%             ylim([-amp * 10 amp * 10])
     %         Plot scaled energy
             subplot(3,1,2)
             plot(out(1:n))
@@ -557,7 +557,8 @@ hold off;
 %             hold off;
 %             plot(1:length(up), up, '-o');
 %             hold on;   
-%             plot((1:length(wp))+length(up)-1, wp, '-o');
+%             plot((1:length(wp))+length(up)-1, wp, '-o');  
+pause(0.2);
             drawnow;
         end
         
@@ -583,7 +584,7 @@ hold off;
 end
 
 function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n)
-    lengths = [0.708, 0.177, 0.711, 0.241, 0.254, 0.502];
+    lengths = [0.708, 0.177, 0.711, 0.306, 0.254, 0.502];
     radii = [0.0069, 0.0072, 0.0069, 0.0071, 0.0075, 0.0107]; % two radii for tuning slide
 
     lengthN = round(NnonExtended * lengths ./ sum(lengths));
@@ -599,18 +600,20 @@ function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n)
     flare = 0.7;
     bellL = lengthN(end);
     
-    bell = b * ((0.502:-0.502 / (bellL - 1):0) + x0).^(-flare);
+    bell = b * ((lengths(6):-lengths(6) / (bellL - 1):0) + x0).^(-flare);
+
+    
 %     pointsLeft = N - length([mp, m2t, bell]);
 %     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
     totLengthN = length(inner1) + length(inner2) + length(gooseneck) + length(tuning) + length(bell);
-    lengthN(2) = lengthN(2) + (N - NnonExtended + 1);
+%     lengthN(2) = lengthN(2) + (N - NnonExtended + 1);
     slide = ones(N - totLengthN, 1) * radii(2);
     totRadii = [inner1; slide; inner2; gooseneck; tuning; bell'];
     
     % True geometry
     S = totRadii.^2 * pi;
 %     S = 1 + 1 * 0.5 * (1 + sin(2 * pi * 100 * n / 44100)) * (ones(length(S), 1));
-    S = ones(size(S));
+%     S = ones(size(S));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

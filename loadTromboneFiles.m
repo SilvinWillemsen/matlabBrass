@@ -1,4 +1,4 @@
-path = "/Users/SilvinW/repositories/Trombone/Builds/MacOSX/build/Debug/";
+path = "/Users/SilvinW/repositories/brass/cppBrass/Trombone/Builds/MacOSX/build/Debug/";
 
 vStateString = path + "/vState.csv";
 vState = load(vStateString);
@@ -17,3 +17,6 @@ Mw = load(MwString);
 
 energyString = path + "/energySave.csv";
 energy = load(energyString);
+
+scaledTotEnergyString = path + "/scaledTotEnergySave.csv";
+scaledTotEnergy = load(scaledTotEnergyString);

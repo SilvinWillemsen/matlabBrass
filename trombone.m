@@ -7,27 +7,29 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSetting =1 ; % change to 0 to go back to previous drawing
+drawSetting = 1; % change to 0 to go back to previous drawing
 
-drawSpeed = 20;
-drawStart = 1;
+drawSpeed = 5;
+drawStart = 600;
 drawSpeedInit = drawSpeed;
 
-dontInterpolateAtStart = true;
+fixedNonInterpolatedL = false;
 
 centered = true;
 
-changeL = true;
+changeL = ~fixedNonInterpolatedL;
 changeF0 = true;
 radiation = true;
 
-connectedToLip = true;
+connectedToLip = false;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
 lengthSound = fs * 5;   % Duration (s)
 
 LnonExtended = 2.658;
+Lextended = 3.718;
+
 % LnonExtended = 2.685;
 
 % LnonExtended = 0.999959410430839;
@@ -55,11 +57,12 @@ h = c * k;              % Grid spacing (m)
 % LnonExtended = Ninit * h;
 %%%
 Ninit = LnonExtended / h;
-if dontInterpolateAtStart
+if fixedNonInterpolatedL
     LnonExtended = floor(Ninit) * h;
     Ninit = LnonExtended / h;
 end
-lengths = LnonExtended ./ multiplier;
+% lengths = LnonExtended ./ multiplier;
+lengths = Lextended ./ multiplier;
 
 NnonExtended = floor(Ninit);
 
@@ -75,9 +78,9 @@ for i = 1:length(melody)
     freqsRange(range + length(range) * (i-1)) = (2-pitchGlide) .* freqs(i);
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
-L = lengthRange(1);          % Length
+% L = lengthRange(1);          % Length
+L = LnonExtended;
 LInit = L;
-
 N = floor(L/h);         % Number of points (-)
 alf = Ninit - N;
 
@@ -94,7 +97,7 @@ alfCol = 3;
 f0Init = freqs(1);                  % fundamental freq lips
 f0 = f0Init;
 
-M = 5.37e-5;                % mass lips
+Mlip = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0Init;   % angular freq
 
 sig = 5;                % damping
@@ -125,8 +128,10 @@ uvNext = zeros(ceil(addPointsAt), 1);
 uv = zeros(ceil(addPointsAt), 1);
 
 if ~connectedToLip
-    inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
-    up(floor(inputRange)) = up(inputRange) + hann(11);
+%     inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
+    inputRange = 21:31;
+    up(floor(inputRange)) = up(floor(inputRange)) + 1000 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
+%     up(floor(inputRange)) = up(inputRange) + 500 * hann(11);
 %     up(1:end-1) = rand(length(up)-1, 1);
 end
 
@@ -210,11 +215,12 @@ v1 = 0;
 
 Pmprev = 0;
 flag = false;
+statesSave = [];
 % multiplierVec = reshape(repmat(multiplier, lengthSound / 4, 1), lengthSound, 1);
 for n = 1:lengthSound
     [S, SHalf, SBar] = setTube (N+1, NnonExtended, n);
 
-    filterCoeff = 0.999;
+    filterCoeff = 0.999995;
 
     if changeL
         LPrev = L;
@@ -313,6 +319,8 @@ for n = 1:lengthSound
         potScalingW(end) = 0.5;
         potScalingU(end) = 0.5;
         potScalingW(1) = 0.5;
+        
+        statesSave = [statesSave; [up(end-1), up(end), wp(1), wp(2), uv(end-1), uv(end), wv(1), wv(2), uvMph, wvmh] ];
     end   
     
     % remove point if N^n < N^{n-1}
@@ -398,9 +406,9 @@ for n = 1:lengthSound
     
     
     %% Obtain deltaP
-    a1 = 2 / k + omega0^2 * k + sig + g^2 * k / (2 * M);
-    a2 = Sr / M;
-    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev + g / M * psiPrev;
+    a1 = 2 / k + omega0^2 * k + sig + g^2 * k / (2 * Mlip);
+    a2 = Sr / Mlip;
+    a3 = 2/k * 1/k * (y - yPrev) - omega0^2 * yPrev + g / Mlip * psiPrev;
     b1 = SHalf(1) * uvNext(1) + h * SBar(1) / (rho * c^2 * k) * (Pm  - up(1));
     b2 = h * SBar(1) / (rho * c^2 * k);
     c1 = w * subplus(y + H0) * sqrt(2 / rho);
@@ -410,10 +418,10 @@ for n = 1:lengthSound
     deltaP = sign(c3) * ((-c1 + sqrt(c1^2 + 4 * c2 * abs(c3)))/ (2 * c2))^2;
     
     %% Update lip scheme
-    gammaR = g * k^2 / (2 * M);
+    gammaR = g * k^2 / (2 * Mlip);
     alpha = 2 + omega0^2 * k^2 + sig * k + g * gammaR;
     beta = sig * k - 2 - omega0^2 * k^2 + g * gammaR;
-    xi = 2 * Sr * k^2 / M;
+    xi = 2 * Sr * k^2 / Mlip;
     
     yNext(n) = 4 / alpha * y + beta / alpha * yPrev + xi / alpha * deltaP + 4 * gammaR * psiPrev / alpha;
 
@@ -453,7 +461,7 @@ for n = 1:lengthSound
     potEnergyW(n) = 1/(2 * rho * c^2) * h * sum (SBar(length(up):end) .* potScalingW .* wp.^2);
     hTubeW(n) = kinEnergyW(n) + potEnergyW(n);
 
-    hReed(n) = M / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
+    hReed(n) = Mlip / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
     hColl(n) = psiPrev^2 / 2;
     hRad(n) = SBar(end) / 2 * (Lr * v1^2 + Cr * p1^2);
 
@@ -464,7 +472,7 @@ for n = 1:lengthSound
     
     % summed forms (damping and power input)
     idx = n - (1 * (n~=1));
-    qReed(n) = M * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP;
+    qReed(n) = Mlip * sig * (1/(2*k) * (yNext(n) - yPrev))^2 + Ub * deltaP;
     qHReed(n) = k * qReed(n) + qHReed(idx);
     pReed(n) = -(Ub + Ur) * Pm;
     pHReed(n) = k * pReed(n) + pHReed(idx);
@@ -547,18 +555,29 @@ for n = 1:lengthSound
             pause(0.5)
             drawnow;
         else
-hold off;
+            subplot(2,1,1)
+            hold off;
             plot(1:length(up), up);
+%             plot(1:length(uv), uv);
             hold on
-            plot(1:length(up), pState(n, 1:length(up))');
-            plot((1:length(wp)) + length(up) - 1, wp);
-            plot((1:length(wp)) + length(up) - 1, pState(n, (1:length(wp)) + length(up))');
-
+            plot(1:M(n)+1, pState(n, 1:M(n)+1), 'Marker', '.', 'MarkerSize', 10);
+            plot((1:length(wp)) + length(up) - 1 + alf, wp);
+            plot((M(n)+1:(M(n)+Mw(n) + 1)) + alfSave(n), pState(n, (maxM+2):(maxM+Mw(n)+2)), 'Marker', 'o', 'MarkerSize', 2);
+%             xlim([M(n) - 5, (M(n)+5)])
+%             plot (sqrt(S / pi) * 100 * amp, 'k')
+%             hold on
+%             plot (sqrt(Ssave(n, :) / pi) * 100 * amp, '--k')
+%             hold off
+%             plot((1:length(wp)) + length(up) - 1, pState(n, (1:length(wp)) + length(up))');
+%             plot((1:length(wv)) + length(uv) - 1 + alf, wv);
+% 
+            subplot(2,1,2)
+            plot([1:length(up), (1:length(wp)) + length(up) - 1 + alf], [up', wp'] - [pState(n, 1:M(n)+1), pState(n, (maxM+2):(maxM+Mw(n)+2)) ])
 %             hold off;
 %             plot(1:length(up), up, '-o');
 %             hold on;   
 %             plot((1:length(wp))+length(up)-1, wp, '-o');  
-pause(0.2);
+            pause(0.5) ;
             drawnow;
         end
         

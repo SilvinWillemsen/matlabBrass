@@ -1,21 +1,37 @@
 clc;
-clear all;
+% clear all;
 close all
 loadFiles = true;
 if loadFiles
-%     clear all;
-    mode = "Release";
+    clear all;
+    onlyLoadOutput = false;
+    mode = "Debug";
     loadTromboneFiles;
 end
-lengthSound = length(M);
+lengthSound = length(output);
 
-for n = 1:5:lengthSound
+plot(output)
+pause(1)
+for n = 1:100:lengthSound
 %     subplot(3,1,1)
-    hold off;
-    plot(1:M(n)+1, pState(n, 1:M(n)+1));
-    hold on;    
-    plot(M(n)+1:(M(n)+Mw(n) + 1), pState(n, (M(n)+2):(M(n)+Mw(n)+2)));
-    pState(n, end)
+    if ~onlyLoadOutput
+        subplot(2,1,1)
+        hold off;
+        plot(1:M(n)+1, pState(n, 1:M(n)+1), 'Marker', '.', 'MarkerSize', 10);
+        hold on;    
+        plot((M(n)+1:(M(n)+Mw(n) + 1)) + alfSave(n), pState(n, (maxM+2):(maxM+Mw(n)+2)), 'Marker', 'o', 'MarkerSize', 2);
+    %     xlim([M(n) - 5, M(n) + 5])
+
+        subplot(2,1,2)
+        hold off;
+        plot(1:M(n), vState(n, 1:M(n)), 'Marker', '.', 'MarkerSize', 10);
+        hold on;
+        plot((M(n)+1:(M(n)+Mw(n))) + alfSave(n), vState(n, (maxM+1):(maxM+Mw(n))), 'Marker', 'o', 'MarkerSize', 2);
+        xlim([M(n) - 5, M(n) + 5])
+    else
+    %     subplot(2,1,2)
+        plot(output(1:n))
+    end
 %     subplot(3,1,2)
 % %     plot(energy(1:n, 1:end-1));
 % %     legend(["kin", "pot", "rad", "radDamp", "lip", "lipCol", "lipPow", "lipDamp"])
@@ -25,5 +41,6 @@ for n = 1:5:lengthSound
 % % %     hold on
 %     plot(scaledTotEnergy(1:n))
 % ylim([-3e-16, 3e-16])
+    pause(0.5)
     drawnow;
 end

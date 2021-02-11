@@ -9,8 +9,8 @@ close all;
 drawThings = true;
 drawSetting = 1; % change to 0 to go back to previous drawing
 
-drawSpeed = 5;
-drawStart = 600;
+drawSpeed = 50;
+drawStart = 0;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -62,7 +62,7 @@ if fixedNonInterpolatedL
     Ninit = LnonExtended / h;
 end
 % lengths = LnonExtended ./ multiplier;
-lengths = Lextended ./ multiplier;
+lengths = LnonExtended ./ multiplier;
 
 NnonExtended = floor(Ninit);
 
@@ -79,7 +79,7 @@ for i = 1:length(melody)
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
 % L = lengthRange(1);          % Length
-L = LnonExtended;
+L = Lextended;
 LInit = L;
 N = floor(L/h);         % Number of points (-)
 alf = Ninit - N;
@@ -220,7 +220,7 @@ statesSave = [];
 for n = 1:lengthSound
     [S, SHalf, SBar] = setTube (N+1, NnonExtended, n);
 
-    filterCoeff = 0.999995;
+    filterCoeff = 0.9999;
 
     if changeL
         LPrev = L;
@@ -351,6 +351,7 @@ for n = 1:lengthSound
         potScalingW(end) = 0.5;
         potScalingU(end) = 0.5;
         potScalingW(1) = 0.5;
+        statesSave = [statesSave; [up(end-1), up(end), wp(1), wp(2), uv(end-1), uv(end), wv(1), wv(2), uvMph, wvmh] ];
 
     end
     upRange = 2:length(up)-1;         % range without boundaries
@@ -577,7 +578,7 @@ for n = 1:lengthSound
 %             plot(1:length(up), up, '-o');
 %             hold on;   
 %             plot((1:length(wp))+length(up)-1, wp, '-o');  
-            pause(0.5) ;
+            pause(0.5);
             drawnow;
         end
         

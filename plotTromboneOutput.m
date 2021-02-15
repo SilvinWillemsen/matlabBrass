@@ -1,7 +1,7 @@
 clc;
 % clear all;
 close all
-loadFiles = true;
+loadFiles = false;
 if loadFiles
     clear all;
     onlyLoadOutput = false;

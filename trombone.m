@@ -7,9 +7,15 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSetting = 1; % change to 0 to go back to previous drawing
+drawSetting = 2; % change to 0 to go back to previous drawing
 
-drawSpeed = 50;
+if drawSetting == 2
+    figure("Position", [0, 1000, 1000, 250])
+    set(gca, 'Position', [0.00222222222222222 0.01 0.994444444444444 0.986666666666667]);
+
+end
+
+drawSpeed = 1;
 drawStart = 0;
 drawSpeedInit = drawSpeed;
 
@@ -79,9 +85,10 @@ for i = 1:length(melody)
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
 % L = lengthRange(1);          % Length
-L = LnonExtended;
+L = LnonExtended * 337.5 / 337;
 LInit = L;
-N = floor(L/h);         % Number of points (-)
+Ninit = L/h;
+N = floor(Ninit);         % Number of points (-)
 alf = Ninit - N;
 
 %% Lip Collision
@@ -444,9 +451,6 @@ for n = 1:lengthSound
     v1Next = v1 + k / (2 * Lr) * (wpNext(end) + wp(end));
     p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
 
-    if v1Next ~= 0
-        disp("wait")
-    end
     %% Set output from output position
     out(n) = wp(end);
     
@@ -486,7 +490,7 @@ for n = 1:lengthSound
     if drawThings && mod (n, drawSpeed) == 0 && n> drawStart
         if drawSetting == 0
             hLocsLeft = (0:(length(up))-1) * h;
-            hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
+            pLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
     %         % Plot the velocity
     %         subplot(4,1,1)
     %         cla
@@ -524,11 +528,11 @@ for n = 1:lengthSound
             cla
             hold on;
             plot(hLocsLeft / L, up, '-o');
-            plot(hLocsRight / L, wp, '-o');
+            plot(pLocsRight / L, wp, '-o');
             plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-            plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+            plot(pLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
             plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-            plot(hLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+            plot(pLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
 %             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
 %             plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
 %             plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
@@ -552,7 +556,7 @@ for n = 1:lengthSound
     %         plot(totH(1:n));
             pause(0.5)
             drawnow;
-        else
+        elseif drawSetting == 1
             subplot(2,1,1)
             hold off;
             plot(1:length(up), up);
@@ -575,6 +579,239 @@ for n = 1:lengthSound
 %             plot(1:length(up), up, '-o');
 %             hold on;   
 %             plot((1:length(wp))+length(up)-1, wp, '-o');  
+            pause(0.5);
+            drawnow;
+        elseif drawSetting == 2
+            
+            %% options
+            dashedLineWidth = 1;
+            timeIndices = false; 
+            
+            numPLeft = 2;
+            numPRight = 2; 
+            
+            numQRight = numPLeft;
+            numQLeft = numPRight; 
+            
+            alignDashedToOutside = false;
+            
+            %% prepare figure
+            timeSteps = ["$n+1$", "$n+1/2$", "$n$", "$n-1/2$"];
+            j = 1;
+            for nIdx = 0:-1:-3
+                plot([-0.5, 10], [nIdx, nIdx], 'color', [0.5, 0.5, 0.5]);
+                text(-0.6, nIdx, timeSteps(j), 'interpreter', 'latex', 'Fontsize', 16, 'horizontalAlignment', 'right')
+                hold on;
+                j = j + 1;
+            end
+            xPLocs = 0:(numPLeft - 1);
+            xPLocs = [xPLocs, ((0.5:0.5:1.5)+xPLocs(end))];
+            xPLocs = [xPLocs, ((1:numPRight-1)+xPLocs(end))];
+            
+            xQLocs = 0:(numQLeft - 1);
+            xQLocs = [xQLocs, ((0.5:0.5:1.5)+xQLocs(end))];
+            xQLocs = [xQLocs, ((1:numQRight-1)+xQLocs(end))];
+
+            xQLocs = xQLocs + xQLocs(end) + alf;
+            
+            xlim([-1.5, xQLocs(end) + 0.5])
+            ylim([-3.5, 1])
+
+
+            for n = 0:1
+                %% plot pressures
+
+                % p
+                plot([xPLocs(1), xPLocs(numPLeft+1)], [0, 0] - n * 2, 'LineWidth', 2, 'Color', 'b');
+                plot([xPLocs(numPLeft+1), xPLocs(numPLeft+2)], [0, 0] - n * 2, '--', 'LineWidth', dashedLineWidth, 'Color', 'b');
+                plot([xPLocs(numPLeft+2), xPLocs(end)], [0, 0] - n * 2, 'LineWidth',2, 'Color', 'b');
+
+                pXLocs = [xPLocs(1:numPLeft), xPLocs(end-numPRight+1:end)];
+                scatter(pXLocs, zeros(1,length(pXLocs)) - n * 2, 400, 'b', '.');
+
+                % q
+                plot([xQLocs(1), xQLocs(numQLeft+1)], [0, 0] - n * 2, 'LineWidth', 2, 'Color', 'r');
+                plot([xQLocs(numQLeft+1), xQLocs(numQLeft+2)], [0, 0] - n * 2, '--', 'LineWidth', dashedLineWidth, 'Color', 'r');
+                plot([xQLocs(numQLeft+2), xQLocs(end)], [0, 0] - n * 2, 'LineWidth', 2, 'Color', 'r');
+
+                qXLocs = [xQLocs(1:numQLeft), xQLocs(end-numQRight+1:end)];
+                
+                scatter(qXLocs, zeros(1,length(qXLocs)) - n * 2, 400, 'r', '.');
+           
+                %% plot velocities
+                vOffset = -1;
+                
+                % v
+                if alignDashedToOutside
+                    xVLocs = xPLocs(2:end) - 0.5;
+                    plot([xVLocs(1), xVLocs(numPLeft)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'b');
+                    plot([xVLocs(numPLeft), xVLocs(numPLeft+1)], [0, 0] + vOffset - n * 2, '--', 'LineWidth', dashedLineWidth, 'Color', 'b');
+                    plot([xVLocs(numPLeft+1), xVLocs(end)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'b');
+
+                    vXLocs = [xVLocs(1:numPLeft-1), xVLocs(end-numPRight+1:end)];
+                    scatter(vXLocs, zeros(1, length(vXLocs)) + vOffset - n * 2,  400, 'b', '.');
+                    scatter(vXLocs(end) + 1, 0 + vOffset - n * 2, 80, 'b', 'LineWidth', 2);
+
+                else
+                    xVLocs = xPLocs(1:end-1) + 0.5;
+                    plot([xVLocs(1), xVLocs(numPLeft+1)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'b');
+                    plot([xVLocs(numPLeft+1), xVLocs(numPLeft+2)], [0, 0] + vOffset - n * 2, '--', 'LineWidth', dashedLineWidth, 'Color', 'b');
+                    plot([xVLocs(numPLeft+2), xVLocs(end)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'b');
+
+                    vXLocs = [xVLocs(1:numPLeft), xVLocs(end-numPRight+2:end)];
+                    scatter(vXLocs, zeros(1, length(vXLocs)) + vOffset - n * 2,  400, 'b', '.');
+                    scatter(vXLocs(end) + 1, 0 + vOffset - n * 2, 80, 'b', 'LineWidth', 2);
+                end
+                
+                
+                % w
+
+                if alignDashedToOutside
+                    xWLocs = xQLocs(1:end-1) + 0.5;
+                    plot([xWLocs(1), xWLocs(numQLeft+1)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'r');
+                    plot([xWLocs(numQLeft+1), xWLocs(numQLeft+2)], [0, 0] + vOffset - n * 2, '--', 'LineWidth', dashedLineWidth, 'Color', 'r');
+                    plot([xWLocs(numQLeft+2), xWLocs(end)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'r');
+
+                    wXLocs = [xWLocs(1:numQLeft), xWLocs(end-numQRight+2:end)];
+                    scatter(wXLocs, zeros(1, length(wXLocs)) + vOffset - n * 2,  400, 'r', '.');
+                    scatter(wXLocs(1) - 1, 0 + vOffset - n * 2, 80, 'r', 'LineWidth', 2);
+
+                else
+                    xWLocs = xQLocs(2:end) - 0.5;
+                    plot([xWLocs(1), xWLocs(numQLeft)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'r');
+                    plot([xWLocs(numQLeft), xWLocs(numQLeft+1)], [0, 0] + vOffset - n * 2, '--', 'LineWidth', dashedLineWidth, 'Color', 'r');
+                    plot([xWLocs(numQLeft+1), xWLocs(end)], [0, 0] + vOffset - n * 2, 'LineWidth', 2, 'Color', 'r');
+
+                    wXLocs = [xWLocs(1:numQLeft-1), xWLocs(end-numQRight+1:end)];
+                    scatter(wXLocs, zeros(1, length(wXLocs)) + vOffset - n * 2,  400, 'r', '.');
+                    scatter(wXLocs(1) - 1, 0 + vOffset - n * 2, 80, 'r', 'LineWidth', 2);
+                end
+                
+                %% Draw texts
+                textOffset = 0.4;
+
+                if ~timeIndices
+                    idxP = "";
+                    idxV = "";
+                else
+                    if n == 0
+                        idxP = "n+1";
+                        idxV = "n+1/2";
+                    else
+                        idxP = "n";
+                        idxV = "n-1/2";
+                    end
+                end
+                
+                % pressures
+
+                textPNext = [];
+                textQNext = [];
+                
+                for idx = 0:numPLeft-1
+                    textPNext = [textPNext, "$p_{"+ num2str(idx) + "}^{"+ idxP + "}$"];
+                end
+                for idx = -numPRight+1:0
+                    if idx == 0
+                        num = "";
+                    else
+                        num = num2str(idx);
+                    end
+                    textPNext = [textPNext, "$p_{M_p" + num + "}^{"+ idxP + "}$"];
+                end
+                
+                for idx = 0:numQLeft-1
+                    textQNext = [textQNext, "$q_{"+ num2str(idx) + "}^{"+ idxP + "}$"];
+                end
+                for idx = -numQRight+1:0
+                    if idx == 0
+                        num = "";
+                    else
+                        num = num2str(idx);
+                    end
+                    textQNext = [textQNext, "$q_{M_q" + num + "}^{"+ idxP + "}$"];
+                end
+            
+
+                text(pXLocs, zeros(1, length(pXLocs)) + textOffset - n * 2, textPNext, 'interpreter', 'latex', ...
+                   'Fontsize', 16, 'color', 'b', 'horizontalAlignment', 'center');
+
+                text(qXLocs, zeros(1, length(qXLocs)) + textOffset - n * 2, textQNext, 'interpreter', 'latex', ...
+                   'Fontsize', 16, 'color', 'r', 'horizontalAlignment', 'center');
+
+
+                % velocities
+                
+                textVNext = [];
+                textWNext = [];
+                
+                if alignDashedToOutside
+                    rangeVEnd = numPLeft-2;                   
+                    rangeVStart = -numPRight+1;
+                    rangeWEnd = numPRight-1;
+                    rangeWStart = -numPLeft+2;
+                else
+                    rangeVEnd = numPLeft-1;
+                    rangeVStart = -numPRight+2;
+                    rangeWEnd = numPRight-2;                   
+                    rangeWStart = -numPLeft+1;
+
+                end
+                for idx = 0:rangeVEnd
+                    textVNext = [textVNext, "$v_{"+ num2str(1 + idx*2) + "/2}^{"+ idxV + "}$"];
+                end
+                
+                for idx = rangeVStart:0
+                    textVNext = [textVNext, "$v_{M_p" + num2str(-1 + idx*2) + "/2}^{"+ idxV + "}$"];
+                end
+                
+                for idx = 0:rangeWEnd
+                    textWNext = [textWNext, "$w_{"+ num2str(1 + idx*2) + "/2}^{"+ idxV + "}$"];
+                end
+                for idx = rangeWStart:0
+                    textWNext = [textWNext, "$w_{M_q" + num2str(-1 + idx*2) + "/2}^{"+ idxV + "}$"];
+                end
+            
+                text(vXLocs, zeros(1, length(vXLocs)) + vOffset + textOffset - n * 2, textVNext, 'interpreter', 'latex', ...
+                   'Fontsize', 16, 'color', 'b', 'horizontalAlignment', 'center');
+
+
+                text(wXLocs, zeros(1, length(wXLocs)) + vOffset + textOffset - n * 2, textWNext, 'interpreter', 'latex', ...
+                   'Fontsize', 16, 'color', 'r', 'horizontalAlignment', 'center');
+
+
+                text(vXLocs(end) + 1, vOffset + textOffset - n * 2, "$v_{M_p+1/2}^{"+ idxV + "}$", 'interpreter', 'latex', ...
+                   'Fontsize', 16, 'color', 'b', 'horizontalAlignment', 'center');
+
+                text(wXLocs(1) - 1, vOffset + textOffset - n * 2, "$w_{-1/2}^{"+ idxV + "}$", 'interpreter', 'latex', ...
+                   'Fontsize', 16, 'color', 'r', 'horizontalAlignment', 'center');
+
+           
+            end
+            %% virtual points
+            vpTextOffset = textOffset;
+            pXMp1 = pXLocs(end) + 1;
+            scatter(pXMp1, 0 - n * 2, 80, 'b', 'Linewidth', 2);
+%             arrow([pXMp1, pXMp1], [vpTextOffset * 0.7, vpTextOffset * 0.2] - n * 2, 1.5, 0.15, 0.25, 'b')
+            
+            text(pXMp1, vpTextOffset - n * 2, "$p_{M_p+1}^{" + idxP + "}$", 'interpreter', 'latex', ...
+               'Fontsize', 16, 'color', 'b', 'horizontalAlignment', 'center');
+
+            qXm1 = qXLocs(1) - 1;
+
+            scatter(qXm1, 0 - n * 2, 80, 'r', 'Linewidth', 2);
+            text(qXm1, vpTextOffset - n * 2, "$q_{-1}^{" + idxP + "}$", 'interpreter', 'latex', ...
+               'Fontsize', 16, 'color', 'r', 'horizontalAlignment', 'center');
+           
+%             arrow([qXm1, qXm1], [vpTextOffset * 0.7, vpTextOffset * 0.2] - n * 2, 1.5, 0.15, 0.25, 'r')
+
+            
+            set(gcf, 'color', 'w')
+            axis off
+            
+            
+            % plot options 
+            set(gca, 'Fontsize', 16)
             pause(0.5);
             drawnow;
         end

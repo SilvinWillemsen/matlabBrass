@@ -198,13 +198,13 @@ for n = 0:1
         if alignDashedToOutside
             rangeVEnd = numPLeft-2;                   
             rangeVStart = -numPRight+1;
-            rangeWEnd = numQRight-1;
-            rangeWStart = -numQLeft+2;
+            rangeWEnd = numQLeft-1;
+            rangeWStart = -numQRight+2;
         else
             rangeVEnd = numPLeft-1;
             rangeVStart = -numPRight+2;
-            rangeWEnd = numQRight-2;                   
-            rangeWStart = -numQLeft+1;
+            rangeWEnd = numQLeft-2;                   
+            rangeWStart = -numQRight+1;
 
         end
         for idx = 0:rangeVEnd

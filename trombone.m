@@ -9,13 +9,16 @@ close all;
 drawThings = true;
 drawSetting = 1; % change to 0 to go back to previous drawing
 
-drawSpeed = 1;
+drawSpeed = 100;
 drawStart = 0;
 drawSpeedInit = drawSpeed;
 
-fixedNonInterpolatedL = true;
+fixedNonInterpolatedL = false;
 
 centered = true;
+
+lpConnection = false;
+lpExponent = 10;
 
 changeL = ~fixedNonInterpolatedL;
 changeF0 = true;
@@ -56,15 +59,15 @@ h = c * k;              % Grid spacing (m)
 % Ninit = floor(LnonExtended / h);
 % LnonExtended = Ninit * h;
 %%%
-Ninit = LnonExtended / h;
+Ninit = Lextended / h;
 if fixedNonInterpolatedL
     LnonExtended = floor(Ninit) * h;
     Ninit = LnonExtended / h;
 end
+lengths = Lextended ./ multiplier;
 % lengths = LnonExtended ./ multiplier;
-lengths = LnonExtended ./ multiplier;
 
-NnonExtended = floor(Ninit);
+NnonExtended = floor(LnonExtended / h);
 
 lambda = c * k / h      % courant number
 pitchGlide = ones(length(range), 1);
@@ -78,8 +81,8 @@ for i = 1:length(melody)
     freqsRange(range + length(range) * (i-1)) = (2-pitchGlide) .* freqs(i);
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
-% L = lengthRange(1);          % Length
-L = LnonExtended * 337.25 / 337;
+L = lengthRange(1);          % Length
+% L = Lextended;
 LInit = L;
 Ninit = L/h;
 N = floor(Ninit);         % Number of points (-)
@@ -228,7 +231,18 @@ for n = 1:lengthSound
 %         L = (1-filterCoeff) * LInit * 1/multiplierVec(n) + filterCoeff * LPrev;%* sin(0.5 * pi * n/fs));
 %         L = LInit * (1 + 0.5 * n / fs);
 %         L = LInit * (2^sin(2 * pi * n/lengthSound));
-        L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
+%         L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
+        Linc = 0.0002;
+        if (L < lengthRange(n))
+            L =  L + Linc;
+        elseif (L > lengthRange(n))
+            L = L - Linc;
+        end
+    
+        if (abs(L - lengthRange(n)) < Linc)
+            L = lengthRange(n);
+        end
+    
     else
         L = L;
     end
@@ -358,6 +372,40 @@ for n = 1:lengthSound
     upRange = 2:length(up)-1;         % range without boundaries
     wpRange = 2:length(wp)-1;
 
+    if lpConnection
+        diffAtConn = wp(1) - up(end);
+        if mod(N, 1) == 0
+           diffAtConnV = wvmh - uv(end);
+        else
+           diffAtConnV = wv(1) - uvMph;
+        end
+
+        lpVec = 0.5 * diffAtConn * [-(1-alf)^lpExponent, (1-alf)^lpExponent];
+        lpVecV = 0.5 * diffAtConnV * [-(1-alf)^lpExponent, (1-alf)^lpExponent];
+
+%         lpVec = 0.5 * diffAtConn * [-cos((alf) * pi/2)^lpExponent, cos((alf) * pi/2)^lpExponent];
+
+%         u(end) = u(end) + (1-alf)^lpExponent * diffAtConn * 0.5;
+%         w(1) = w(1) - (1-alf)^lpExponent * diffAtConn * 0.5;
+        
+        up(end) = up(end) + lpVec(2);
+        wp(1) = wp(1) + lpVec(1);
+        
+        if mod(N, 2) == 0
+            uv(end) = uv(end) + lpVecV(2);
+            wvmh = wvmh + lpVecV(1);
+        else
+            uvMph = uvMph + lpVecV(2);
+            wv(1) = wv(1) + lpVecV(1);
+        end
+%         if mod(N,2) == 1
+%             
+%         else
+%             w
+%         end
+    end
+    
+    
     A = [1, -ip(4); ...
          -ip(4), 1];
     v = [ip(1) * up(end-2) + ip(2) * up(end-1) + ip(3) * up(end); ...
@@ -551,7 +599,7 @@ for n = 1:lengthSound
             pause(0.5)
             drawnow;
         elseif drawSetting == 1
-            subplot(2,1,1)
+            subplot(3,1,1)
             hold off;
             plot(1:length(up), up);
 %             plot(1:length(uv), uv);
@@ -567,7 +615,17 @@ for n = 1:lengthSound
 %             plot((1:length(wp)) + length(up) - 1, pState(n, (1:length(wp)) + length(up))');
 %             plot((1:length(wv)) + length(uv) - 1 + alf, wv);
 % 
-            subplot(2,1,2)
+            subplot(3,1,2)
+            hold off;
+            plot(1:length(uv), uv);
+%             plot(1:length(uv), uv);
+            hold on
+            plot(1:M(n), vState(n, 1:M(n)), 'Marker', '.', 'MarkerSize', 10);
+            plot((1:length(wv)) + length(uv) + alf, wv);
+            plot((M(n)+1:(M(n)+Mw(n))) + alfSave(n), vState(n, (maxM+1):(maxM+Mw(n))), 'Marker', 'o', 'MarkerSize', 2);
+            xlim([M(n) - 5, (M(n)+5)])
+            
+            subplot(3,1,3)
             plot([1:length(up), (1:length(wp)) + length(up) - 1 + alf], [up', wp'] - [pState(n, 1:M(n)+1), pState(n, (maxM+2):(maxM+Mw(n)+2)) ])
 %             hold off;
 %             plot(1:length(up), up, '-o');

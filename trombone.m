@@ -2,15 +2,15 @@
     Full trombone: lip, dynamic tube with proper geometry, radiation 
 %}
 
-% clear all;
+clear all;
 close all;
 
 % drawing variables
 drawThings = true;
-drawSetting = 1; % change to 0 to go back to previous drawing
+drawSetting = 0; % change to 0 to go back to previous drawing
 
-drawSpeed = 100;
-drawStart = 0;
+drawSpeed = 1;
+drawStart = 950;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -28,7 +28,7 @@ connectedToLip = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs * 5;   % Duration (s)
+lengthSound = fs;   % Duration (s)
 
 LnonExtended = 2.658;
 Lextended = 3.718;
@@ -59,15 +59,18 @@ h = c * k;              % Grid spacing (m)
 % Ninit = floor(LnonExtended / h);
 % LnonExtended = Ninit * h;
 %%%
-Ninit = Lextended / h;
+Ninit = LnonExtended / h;
+% Ninit = 337.9999999;
 if fixedNonInterpolatedL
-    LnonExtended = floor(Ninit) * h;
-    Ninit = LnonExtended / h;
+    L = floor(Ninit) * h;
+    Ninit = L / h;
+    lengths = Ninit * h;
+else
+%     lengths = Ninit * h ./ multiplier;
+    lengths = Lextended ./ multiplier;
 end
-lengths = Lextended ./ multiplier;
-% lengths = LnonExtended ./ multiplier;
-
 NnonExtended = floor(LnonExtended / h);
+
 
 lambda = c * k / h      % courant number
 pitchGlide = ones(length(range), 1);
@@ -81,8 +84,8 @@ for i = 1:length(melody)
     freqsRange(range + length(range) * (i-1)) = (2-pitchGlide) .* freqs(i);
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
-L = lengthRange(1);          % Length
-% L = Lextended;
+% L = lengthRange(1);          % Length
+L = LnonExtended;
 LInit = L;
 Ninit = L/h;
 N = floor(Ninit);         % Number of points (-)
@@ -107,6 +110,9 @@ omega0 = 2 * pi * f0Init;   % angular freq
 sig = 5;                % damping
 H0 = 2.9e-4;                % equilibrium
 y = 0;                      % initial lip state
+yNext = zeros(lengthSound, 1);                  
+deltaP = 0;
+psi = 0;
 
 if connectedToLip
 %     w = 0.25e-2;                   % lip width
@@ -134,7 +140,7 @@ uv = zeros(ceil(addPointsAt)+1, 1);
 if ~connectedToLip
 %     inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
     inputRange = 21:31;
-    up(floor(inputRange)) = up(floor(inputRange)) + 1000 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
+    up(floor(inputRange)) = up(floor(inputRange)) + 100 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
 %     up(floor(inputRange)) = up(inputRange) + 500 * hann(11);
 %     up(1:end-1) = rand(length(up)-1, 1);
 end
@@ -152,12 +158,12 @@ upRange = 2:length(up)-1;         % range without boundaries
 wpRange = 2:length(wp)-1;
 
 %% Initialise energies
-kinEnergyU = zeros (lengthSound, 1);
 potEnergyU = zeros (lengthSound, 1);
+kinEnergyU = zeros (lengthSound, 1);
 hTubeU = zeros (lengthSound, 1);
 
-kinEnergyW = zeros (lengthSound, 1);
 potEnergyW = zeros (lengthSound, 1);
+kinEnergyW = zeros (lengthSound, 1);
 hTubeW = zeros (lengthSound, 1);
 
 hReed = zeros (lengthSound, 1);
@@ -175,13 +181,13 @@ dampEnergy = zeros (lengthSound, 1);
 totH = zeros (lengthSound, 1);
 scaledTotEnergy = zeros (lengthSound, 1);
 
-potScalingU = ones(length(up),1);
-potScalingU(1) = 1 / 2;
-potScalingU(end) = 1 / 2;
+kinScalingU = ones(length(up),1);
+kinScalingU(1) = 1 / 2;
+kinScalingU(end) = (alf + 1) / 2;
 
-potScalingW = ones(length(wp),1);
-potScalingW(1) = 1 / 2;
-potScalingW(end) = 1 / 2;
+kinScalingW = ones(length(wp),1);
+kinScalingW(1) = (alf + 1) / 2;
+kinScalingW(end) = 1 / 2;
 
 ip = [alf * (alf - 1) * (alf - 2) / -6, ...
                 (alf - 1) * (alf + 1) * (alf - 2) / 2, ...
@@ -232,7 +238,7 @@ for n = 1:lengthSound
 %         L = LInit * (1 + 0.5 * n / fs);
 %         L = LInit * (2^sin(2 * pi * n/lengthSound));
 %         L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
-        Linc = 0.0002;
+        Linc = 0.00002;
         if (L < lengthRange(n))
             L =  L + Linc;
         elseif (L > lengthRange(n))
@@ -309,67 +315,68 @@ for n = 1:lengthSound
         if mod(N,2) == 1
 %             uvNext = [uvNext; (ip(4) * uvNext(end-1) + ip(3) * uvNext(end) + ip(2) * wvNext(1) + ip(1) * wvNext(2))];
 %             uv = [uv; (ip(4) * uv(end-1) + ip(3) * uv(end) + ip(2) * wv(1) + ip(1) * wv(2))];
-            uvNext = [uv; uvNextMph];
-            uv = [uv; uvMph];
-            uvMph =  customIp * [uv(end-1:end); wv(1:2)];
+            uvNext = [uvNext; customIp * [uvNext(end-1:end); wvNext(1:2)]];
+            uv = [uv; customIp * [uv(end-1:end); wv(1:2)]];
             upNext = [upNext; customIp * [upNext(end-1:end); wpNext(1:2)]];
             up = [up; customIp * [up(end-1:end); wp(1:2)]];
-            
+%             upNext = [upNext; customIp * [upNext(end-1:end); wpNext(1:2)]];
+%             up = [up; ]
         else 
 %             wvNext = [(ip(1) * uvNext(end-1) + ip(2) * uvNext(end) + ip(3) * wvNext(1) + ip(4) * wvNext(2)); wvNext];
 %             wv = [(ip(1) * uv(end-1) + ip(2) * uv(end) + ip(3) * wv(1) + ip(4) * wv(2)); wv];
-            wvNext = [wvNextmh; wvNext];
-            wv = [wvmh; wv];
-            wvmh =  fliplr(customIp) * [uv(end-1:end); wv(1:2)];
-            wpNext = [(customIp(4) * upNext(end-1) + customIp(3) * upNext(end) + customIp(2) * wpNext(1) + customIp(1) * wpNext(2)); wpNext];
-            wp = [(customIp(4) * up(end-1) + customIp(3) * up(end) + customIp(2) * wp(1) + customIp(1) * wp(2)); wp];
-               
+%             wvNext = [fliplr(customIp) * [uvNext(end-1:end); wvNext(1:2)]; wvNext];
+%             wv = [fliplr(customIp) * [uv(end-1:end); wv(1:2)]; wv];
+%             wpNext = [fliplr(customIp) * [upNext(end-1:end); wpNext(1:2)]; wpNext];
+%             wp = [fliplr(customIp) * [up(end-1:end); wp(1:2)]; wp];
+            wvNext = [uvNext(end); wvNext];
+            wv = [uv(end); wv];
+            wpNext = [upNext(end); wpNext];
+            wp = [up(end); wp];
+
         end
         [S, SHalf, SBar] = setTube(N+1, NnonExtended,n);
         % insert matrix creation here
         
-        potScalingU = ones(length(up),1);
-        potScalingW = ones(length(wp),1);
-        potScalingU(1) = 0.5;
-        potScalingW(end) = 0.5;
-        potScalingU(end) = 0.5;
-        potScalingW(1) = 0.5;
-        
+        kinScalingU = ones(length(up),1);
+        kinScalingW = ones(length(wp),1);
+        kinScalingU(1) = 0.5;
+        kinScalingU(end) = (1 + alf) / 2;
+        kinScalingW(1) = (1 + alf) / 2;
+        kinScalingW(end) = 0.5;
+
         statesSave = [statesSave; [up(end-1), up(end), wp(1), wp(2), uv(end-1), uv(end), wv(1), wv(2), uvMph, wvmh] ];
+        disp("point added")
     end   
     
     % remove point if N^n < N^{n-1}
     if N < NPrev
         if mod(N,2) == 0
-            uvMph = uv(end);
             uvNext = uvNext(1:end-1);
             uv = uv(1:end-1);
             upNext = upNext(1:end-1);
             up = up(1:end-1);
 
         else 
-            wvmh = wv(1);
             wvNext = wvNext(2:end);
             wv = wv(2:end);
             wpNext = wpNext(2:end);
             wp = wp(2:end);
-
         end
         if flag
             disp("point removed")
         end
         [S, SHalf, SBar] = setTube(N+1, NnonExtended, n);
         
-        potScalingU = ones(length(up),1);
-        potScalingW = ones(length(wp),1);
-        potScalingU(1) = 0.5;
-        potScalingW(end) = 0.5;
-        potScalingU(end) = 0.5;
-        potScalingW(1) = 0.5;
+        kinScalingU = ones(length(up),1);
+        kinScalingW = ones(length(wp),1);
+        kinScalingU(1) = 0.5;
+        kinScalingW(end) = 0.5;
+        kinScalingU(end) = 0.5;
+        kinScalingW(1) = 0.5;
         statesSave = [statesSave; [up(end-1), up(end), wp(1), wp(2), uv(end-1), uv(end), wv(1), wv(2), uvMph, wvmh] ];
 
     end
-    upRange = 2:length(up)-1;         % range without boundaries
+    upRange = 2:length(up);         % range without boundaries
     wpRange = 2:length(wp)-1;
 
     if lpConnection
@@ -413,15 +420,19 @@ for n = 1:lengthSound
     solut = A \ v;
     
     quadIp = [-(alf - 1) / (alf + 1), 1, (alf - 1) / (alf + 1)];
-    solut = [up(end-1) * quadIp(1) + up(end) * quadIp(2) + wp(1) * quadIp(3); ...
-            up(end) * quadIp(3) + wp(1) * quadIp(2) + wp(2) * quadIp(1)];
+    
+    
+    uPMp1 = up(end) * quadIp(3) + wp(1) * quadIp(2) + wp(2) * quadIp(1);
     
     %% Calculate velocities
-    uvNext = uv - lambda / (rho * c) * (up(2:end) - up(1:end-1));
-    uvNextMph = uvMph - lambda / (rho * c) * (solut(2) - up(end));
+    uvNext(1:end-1) = uv(1:end-1) - lambda / (rho * c) * (up(2:end) - up(1:end-1));
+    uvNext(end) = uv(end) - lambda / (rho * c) * (uPMp1 - up(end));
     
     wvNext = wv - lambda / (rho * c) * (wp(2:end) - wp(1:end-1));
-    wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - solut(1));
+    
+    wvNextmh = uvNext(end-1) * quadIp(1) + uvNext(end) * quadIp(2) + wvNext(1) * quadIp(3);
+
+%     wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - solut(1));
     
 %     %% Variable input force
 %     filterCoeffPm = 0.9995;
@@ -445,45 +456,48 @@ for n = 1:lengthSound
 %     else
         Pm = amp;
 %     end
+    if connectedToLip
+        %% Collision
+        barr = -H0;
+        etaC = barr - y;  
+        etaCPrev = barr - yPrev;
 
-    %% Collision
-    barr = -H0;
-    etaC = barr - y;  
-    etaCPrev = barr - yPrev;
+        g = 0;
+        calcLipDisp; % calculate yNext without collision
+        etaCNext = barr - yNext(n);
 
-    g = 0;
-    calcLipDisp; % calculate yNext without collision
-    etaCNext = barr - yNext(n);
-
-    if psiPrev < 0
-        kappaLip = -1;
-    else
-        kappaLip = 1;
-    end
-    
-    if etaC >= 0
-        g = kappaLip * sqrt(Kcol * (alfCol+1) / 2) * subplus (etaC)^((alfCol - 1.0) / 2.0);
-    else
-        if(etaCNext - etaCPrev ~= 0)
-            g = -2 * psiPrev / (etaCNext - etaCPrev);
-        else 
-            disp("DIVISION BY 0");
+        if psiPrev < 0
+            kappaLip = -1;
+        else
+            kappaLip = 1;
         end
+
+        if etaC >= 0
+            g = kappaLip * sqrt(Kcol * (alfCol+1) / 2) * subplus (etaC)^((alfCol - 1.0) / 2.0);
+        else
+            if(etaCNext - etaCPrev ~= 0)
+                g = -2 * psiPrev / (etaCNext - etaCPrev);
+            else 
+                disp("DIVISION BY 0");
+            end
+        end
+
+        calcLipDisp; % calculate yNext with collision
+
+        %% Update collision potential
+        psi = psiPrev - 0.5 * g * (yNext(n) - yPrev);
+
+        %% Calculate flow velocities
+        Ub = w * subplus(y + H0) * sign(deltaP) * sqrt(2 * abs(deltaP)/rho);
+        Ur = Sr * 1/(2*k) * (yNext(n) - yPrev);
+    else
+        Ub = 0;
+        Ur = 0;
     end
-    
-    calcLipDisp; % calculate yNext with collision
-
-    %% Update collision potential
-    psi = psiPrev - 0.5 * g * (yNext(n) - yPrev);
-    
-    %% Calculate flow velocities
-    Ub = w * subplus(y + H0) * sign(deltaP) * sqrt(2 * abs(deltaP)/rho);
-    Ur = Sr * 1/(2*k) * (yNext(n) - yPrev);
-
     %% Calculate pressure
     upNext(upRange) = up(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uvNext(upRange) - SHalf(upRange-1) .* uvNext(upRange-1));
     upNext(1) = up(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * uvNext(1));
-    upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNextMph - SHalf(length(up) - 1) .* uvNext(end));
+%     upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNextMph - SHalf(length(up) - 1) .* uvNext(end));
     
     wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
     wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
@@ -494,16 +508,23 @@ for n = 1:lengthSound
     p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
 
     %% Set output from output position
-    out(n) = wp(end);
+    out(n) = wp(end-1);
     
     %% Energies
-    kinEnergyU(n) = rho / 2 * h * sum(SHalf(1:length(uv)) .* uvNext .* uv);
-    potEnergyU(n) = 1/(2 * rho * c^2) * h * sum (SBar(1:length(up)) .* potScalingU .* up.^2);
-    hTubeU(n) = kinEnergyU(n) + potEnergyU(n);
+    kinScalingU(end) = (1 + alf) / 2;
+    kinScalingW(1) = (1 + alf) / 2;
+    potScalingU = ones(length(uv),1);
+    potScalingW = ones(length(wv),1);
+    potScalingU(end) = (1 + alf) / 2;
+    potScalingW(1) = (1 + alf) / 2;
     
-    kinEnergyW(n) = rho / 2 * h * sum(SHalf(length(uv)+1:end) .* wvNext .* wv);
-    potEnergyW(n) = 1/(2 * rho * c^2) * h * sum (SBar(length(up):end) .* potScalingW .* wp.^2);
-    hTubeW(n) = kinEnergyW(n) + potEnergyW(n);
+    kinEnergyU(n) = 1/(2 * rho * c^2) * h * sum (SBar(1:length(up)) .* kinScalingU .* up.^2);
+    potEnergyU(n) = rho / 2 * h * sum(SHalf(1:length(uv)) .* uvNext .* uv .* potScalingU);
+    hTubeU(n) = potEnergyU(n) + kinEnergyU(n);
+    
+    kinEnergyW(n) = 1/(2 * rho * c^2) * h * sum (SBar(length(up):end) .* kinScalingW .* wp.^2);
+    potEnergyW(n) = rho / 2 * h * sum(SHalf(length(uv):end) .* wvNext .* wv .* potScalingW);
+    hTubeW(n) = potEnergyW(n) + kinEnergyW(n);
 
     hReed(n) = Mlip / 2 * ((1/k * (y - yPrev))^2 + omega0^2 * (y^2 + yPrev^2) / 2);
     hColl(n) = psiPrev^2 / 2;
@@ -529,10 +550,10 @@ for n = 1:lengthSound
     scaledTotEnergy(n) = (totH(n) - totH(1) + dampEnergy(n)) / 2^floor(log2(totH(1)));
 
     %% Draw things
-    if drawThings && mod (n, drawSpeed) == 0 && n> drawStart
+    if drawThings && mod (n, drawSpeed) == 0 && n > drawStart
         if drawSetting == 0
             hLocsLeft = (0:(length(up))-1) * h;
-            pLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
+            hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
     %         % Plot the velocity
     %         subplot(4,1,1)
     %         cla
@@ -567,15 +588,25 @@ for n = 1:lengthSound
     % % %         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
     % Plot the velocity
             subplot(3,1,1)
-            cla
+            hold off
+            plot([hLocsLeft, hLocsLeft(end)+h] / L, [up;uPMp1], '-o', 'color', 'b');
             hold on;
-            plot(hLocsLeft / L, up, '-o');
-            plot(pLocsRight / L, wp, '-o');
-            plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-            plot(pLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-            plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-            plot(pLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-%             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
+            plot(hLocsRight / L, wp, '-o');
+            scatter((hLocsLeft(end) + h)/L, uPMp1, 50, 'b', 'Marker', 'o')
+            xlim([hLocsLeft(end-5)/L, hLocsRight(5)/L])
+            ylim([-10, 10])
+            subplot(3,1,2)
+            hold off;
+            plot(hLocsLeft / L + 0.5 / N, uvNext / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'b');
+            hold on;
+            plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'r');
+%             plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+            scatter(hLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 50, 'r', 'Marker', 'o');
+            ylim([-10e-6, 10e-6])
+
+            xlim([hLocsLeft(end-5)/L, hLocsRight(5)/L])
+
+            %             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
 %             plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
 %             plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
 %             plot([hLocsLeft(1:end-1), hLocsRight] / L, sqrt(S / pi) * 100 * amp, 'k');
@@ -586,8 +617,8 @@ for n = 1:lengthSound
     %         xlim([0.49 0.51])
 %             ylim([-amp * 10 amp * 10])
     %         Plot scaled energy
-            subplot(3,1,2)
-            plot(out(1:n))
+%             subplot(3,1,2)
+%             plot(out(1:n))
     %         hold off
     %         plot(kinEnergyU(1:n) + kinEnergyW(1:n))
     %         hold on;
@@ -650,7 +681,6 @@ for n = 1:lengthSound
     wv = wvNext;
     wp = wpNext;
 
-    uvMph = uvNextMph;
     wvmh = wvNextmh;
     
     p1 = p1Next;
@@ -661,7 +691,7 @@ for n = 1:lengthSound
     psiPrev = psi; 
 
 end
-
+plot(out)
 function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n)
     lengths = [0.708, 0.177, 0.711, 0.306, 0.254, 0.502];
     radii = [0.0069, 0.0072, 0.0069, 0.0071, 0.0075, 0.0107]; % two radii for tuning slide
@@ -692,7 +722,7 @@ function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n)
     % True geometry
     S = totRadii.^2 * pi;
 %     S = 1 + 1 * 0.5 * (1 + sin(2 * pi * 100 * n / 44100)) * (ones(length(S), 1));
-%     S = ones(size(S));
+    S = ones(size(S));
     % Calculate approximations to the geometry
     SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
     SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;

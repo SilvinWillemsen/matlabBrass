@@ -128,8 +128,8 @@ end
 %% Initialise states
 upNext = zeros(ceil(addPointsAt) + 1, 1);
 up = zeros(ceil(addPointsAt) + 1, 1);
-uvNext = zeros(ceil(addPointsAt), 1); 
-uv = zeros(ceil(addPointsAt), 1);
+uvNext = zeros(ceil(addPointsAt)+1, 1); 
+uv = zeros(ceil(addPointsAt)+1, 1);
 
 if ~connectedToLip
 %     inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;

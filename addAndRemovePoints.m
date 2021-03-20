@@ -28,19 +28,27 @@ if N > NPrev
         innerBoundarySaveNext = [uvNext(end-1:end); wvNext(1:2)];
         innerBoundarySave = [uv(end-1:end); wv(1:2)];
 
-        pointToAddNext = (uvNextMph + wvNextmh) * 0.5;
-        pointToAdd = (uvMph + wvmh) * 0.5;
+%         pointToAddNextU = (uvNextMph + wvNextmh) * 0.5;
+%         pointToAddNextW = (uvNextMph + wvNextmh) * 0.5;
+% 
+%         pointToAddU = (uvMph + wvmh) * 0.5;
+%         pointToAddW = (uvMph + wvmh) * 0.5;
 
+        pointToAddNextU = uvNextMph;
+        pointToAddNextW = wvNextmh;
+        
+        pointToAddU = uvMph;
+        pointToAddW = wvmh;
 %         uvNext = [uvNext; customIp * innerBoundarySaveNext];
 %         uv = [uv; customIp * innerBoundarySave];
 %         
 %         wvNext = [fliplr(customIp) * innerBoundarySaveNext; wvNext];
 %         wv = [fliplr(customIp) * innerBoundarySave; wv];
-        uvNext = [uvNext; pointToAddNext];
-        uv = [uv; pointToAddNext];
+        uvNext = [uvNext; pointToAddNextU];
+        uv = [uv; pointToAddNextU];
         
-        wvNext = [pointToAddNext; wvNext];
-        wv = [pointToAdd; wv];
+        wvNext = [pointToAddNextW; wvNext];
+        wv = [pointToAddW; wv];
 
     else % if the new N connects at p prepare the statevectors (by adding to p)
         %% Calculate interpolated velocities
@@ -54,7 +62,7 @@ if N > NPrev
             up(1) = upPrev(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * uv(1));
 %         end
 
-        wp(wpRange-1) = wpPrev(wpRange-1) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 2) .* wv(wpRange) - SHalf(wpRange + length(up) - 3) .* wv(wpRange-1));
+        wp(wpRange-1) = wpPrev(wpRange-1) - rho * c * lambda ./ SBar(wpRange + length(up) - 2) .* (SHalf(wpRange + length(up) - 2) .* wv(wpRange) - SHalf(wpRange + length(up) - 3) .* wv(wpRange-1));
         wpm1 = wpm1Prev - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wv(1) - SHalf(length(up) - 1) .* wvmh);
         
         if radiation
@@ -71,45 +79,38 @@ if N > NPrev
         innerBoundarySave = [up(end-1:end); wp(1:2)];
         innerBoundarySavePrev = [upPrev(end-1:end); wpPrev(1:2)];
 
-%         upNextInnerBoundarySave = [upNext(end); upMp1; wpNext(1:2)];
-%         upInnerBoundarySave = [up(end); upMp1; wp(1:2)];
-%         upPrevInnerBoundarySave = [upPrev(end); upMp1Prev; wpPrev(1:2)];
-% 
-%         wpNextInnerBoundarySave = [upNext(end-1:end); wpm1; wpNext(1)];
-%         wpInnerBoundarySave = [up(end-1:end); wpm1; wp(1)];
-%         wpPrevInnerBoundarySave = [upPrev(end-1:end); wpm1Prev; wpPrev(1)];
-
         uvNextMph = customIpNorm * [uvNext(end-1:end); wvNext(1:2)]; % unnecessary?
         uvMph = customIpNorm * [uv(end-1:end); wv(1:2)];
         
         wvNextmh = fliplr(customIpNorm) * [uvNext(end-1:end); wvNext(1:2)]; % unnecessary?
         wvmh = fliplr(customIpNorm) * [uv(end-1:end); wv(1:2)];
         
-        pointToAdd = (upMp1 + wpm1) * 0.5;
-        pointToAddPrev = (upMp1Prev + wpm1Prev) * 0.5;
+%         pointToAddU = (upMp1 + wpm1) * 0.5;
+%         pointToAddPrevU = (upMp1Prev + wpm1Prev) * 0.5;
+% 
+%         pointToAddW = (upMp1 + wpm1) * 0.5;
+%         pointToAddPrevW = (upMp1Prev + wpm1Prev) * 0.5;
 
-%         upNext = [upNext; customIp * innerBoundarySaveNext];
-%         up = [up; customIp * innerBoundarySave];
-%         upPrev = [upPrev; customIp * innerBoundarySavePrev];
-%         
-%         wpNext = [fliplr(customIp) * innerBoundarySaveNext; wpNext];
-%         wp = [fliplr(customIp) * innerBoundarySave; wp];
-%         wpPrev = [fliplr(customIp) * innerBoundarySavePrev; wpPrev];
+        pointToAddU = upMp1;
+        pointToAddPrevU = upMp1Prev;
 
-        upNext = [upNext; pointToAdd];
-        up = [up; pointToAdd];
-        upPrev = [upPrev; pointToAddPrev];
+        pointToAddW = wpm1;
+        pointToAddPrevW = wpm1Prev;
+
+        upNext = [upNext; pointToAddU];
+        up = [up; pointToAddU];
+        upPrev = [upPrev; pointToAddPrevU];
         
-        wpNext = [pointToAdd; wpNext];
-        wp = [pointToAdd; wp];
-        wpPrev = [pointToAddPrev; wpPrev];
+        wpNext = [pointToAddW; wpNext];
+        wp = [pointToAddW; wp];
+        wpPrev = [pointToAddPrevW; wpPrev];
 
     end
     [S, SHalf, SBar] = setTube(N+1, NnonExtended, n, setToOnes);
     % insert matrix creation here
     
     statesSave = [statesSave; [up(end-1), up(end), wp(1), wp(2), uv(end-1), uv(end), wv(1), wv(2), uvMph, wvmh] ];
-%     disp("point added")
+    disp("point added")
 %     plotStatesAfterAddingPoint;
 end
 

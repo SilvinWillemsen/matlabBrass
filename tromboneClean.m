@@ -2,27 +2,28 @@
     Full trombone: lip, dynamic tube with proper geometry, radiation 
 %}
 
-clear all;
+% clear all;
 close all;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs*3;       % Duration (s)
+lengthSound = fs;       % Duration (s)
 
 % drawing variables
 drawThings = false;
 drawSetting = 0; % change to 0 to go back to previous drawing
+zoomPlot = false;
 
-drawSpeed = 100;
-drawStart = 70000;
+drawSpeed = 1000;
+drawStart = 0;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
 
 changeL = ~fixedNonInterpolatedL;
-radiation = false;
+radiation = true;
 
-connectedToLip = false;
+connectedToLip = true;
 
 LnonExtended = 2.658;
 Lextended = 3.718;
@@ -33,11 +34,11 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-Nstart = 10;
-Nend = 300.0;
-
 NnonExtended = floor(LnonExtended / h);
 Nextended = floor(Lextended / h);
+
+Nstart = NnonExtended;
+Nend = Nextended;
 
 if fixedNonInterpolatedL
     L = floor(Nstart) * h;
@@ -45,7 +46,7 @@ if fixedNonInterpolatedL
 else
     Ninit = Nstart;
 end
-lambdaFact = 0.999;
+lambdaFact = 0.99999;
 lambda = lambdaFact * c * k / h      % courant number
 
 LInit = Ninit*h;
@@ -61,7 +62,7 @@ Kcol = 10000;
 alfCol = 3; 
 
 %% Set cross-sectional geometry
-setToOnes = true;
+setToOnes = false;
 [S, SHalf, SBar, addPointsAt] = setTube (N+1, NnonExtended, 0, setToOnes);
 
 % Quick note: N is the number of spaces between the points so the number of points is N+1
@@ -131,11 +132,21 @@ upMp1Prev = 0;
 wpm1Prev = 0;
 
 if ~connectedToLip
-    width = floor(0.2 * length(up));
-    loc = floor(0.5 * length(up));
-    inputRange = (loc-width) : (loc+width);
-    up(inputRange) = up(inputRange) + hann(width*2+1);
-    upPrev = up;
+    exciteU = false;
+    if exciteU
+        width = floor(0.2 * length(up));
+        loc = floor(0.5 * length(up));
+        inputRange = (loc-width) : (loc+width);
+        up(inputRange) = up(inputRange) + hann(width*2+1);
+        upPrev = up;
+    else
+        width = floor(0.2 * length(wp));
+        loc = floor(0.5 * length(wp));
+        inputRange = (loc-width) : (loc+width);
+        wp(inputRange) = wp(inputRange) + hann(width*2+1);
+        wpPrev = wp;
+    end
+        
 end
 
 % Initialise output
@@ -208,7 +219,7 @@ for n = 1:lengthSound
             up(1) = upPrev(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * uv(1));
 %         end
 
-        wp(wpRange-1) = wpPrev(wpRange-1) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 2) .* wv(wpRange) - SHalf(wpRange + length(up) - 3) .* wv(wpRange-1));
+        wp(wpRange-1) = wpPrev(wpRange-1) - rho * c * lambda ./ SBar(wpRange + length(up) - 2) .* (SHalf(wpRange + length(up) - 2) .* wv(wpRange) - SHalf(wpRange + length(up) - 3) .* wv(wpRange-1));
         wpm1 = wpm1Prev - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wv(1) - SHalf(length(up) - 1) .* wvmh);
         
         if radiation
@@ -282,7 +293,7 @@ for n = 1:lengthSound
         upNext(1) = up(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * uvNext(1));
         upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNextMph - SHalf(length(up) - 1) .* uvNext(end));
 
-        wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 2) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 3) .* wvNext(wpRange-1));
+        wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 2) .* (SHalf(wpRange + length(up) - 2) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 3) .* wvNext(wpRange-1));
         wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
         if radiation
             wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
@@ -360,7 +371,11 @@ for n = 1:lengthSound
                 plot((locsRight(1) - 1), wpm1, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
 
             end
-    %         xlim([locsLeft(end-10), locsRight(10)])
+            if zoomPlot
+                xlim([locsLeft(end-10), locsRight(10)])
+%                     xlim([locsRight(end-10), locsRight(end)])
+
+            end
 %             ylim([-2, 2])
             %% Plot velocities
             subplot(2,1,2)
@@ -379,8 +394,10 @@ for n = 1:lengthSound
 
             end
 %             ylim([-1e-2, 1e-2])
-
-    %         xlim([locsLeft(end-10), locsRight(10)])
+            if zoomPlot
+                xlim([locsLeft(end-10), locsRight(10)])
+%                     xlim([locsRight(end-10), locsRight(end)])
+            end
             pause(0.5)
             drawnow;
         end

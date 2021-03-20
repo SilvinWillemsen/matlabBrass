@@ -22,9 +22,10 @@ lpExponent = 10;
 
 changeL = ~fixedNonInterpolatedL;
 changeF0 = true;
-radiation = true;
+radiation = false;
 
 connectedToLip = true;
+setToOnes = true;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
@@ -60,7 +61,6 @@ h = c * k;              % Grid spacing (m)
 % LnonExtended = Ninit * h;
 %%%
 Ninit = Lextended / h;
-% Ninit = 336.1;
 if fixedNonInterpolatedL
     L = floor(Ninit) * h;
     Ninit = L / h;
@@ -85,8 +85,11 @@ for i = 1:length(melody)
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
 % L = lengthRange(1);          % Length
-L = LnonExtended;
-LInit = L;
+% L = LnonExtended;
+Ninit = 337.57;
+
+LInit = Ninit*h;
+L = LInit;
 Ninit = L/h;
 N = floor(Ninit);         % Number of points (-)
 alf = Ninit - N;
@@ -96,7 +99,7 @@ Kcol = 10000;
 alfCol = 3; 
 
 %% Set cross-sectional geometry
-[S, SHalf, SBar, addPointsAt] = setTube (N+1, NnonExtended, 0);
+[S, SHalf, SBar, addPointsAt] = setTube (N+1, NnonExtended, 0, setToOnes);
 
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
@@ -157,9 +160,9 @@ end
 
 if ~connectedToLip
 %     inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
-    inputRange = 21:31;
-    wp(floor(inputRange)) = wp(floor(inputRange)) + 100 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
-    wpPrev = wp;
+    inputRange = 11:81;
+    up(floor(inputRange)) = up(floor(inputRange)) + 100 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
+    upPrev = up;
     %     up(floor(inputRange)) = up(inputRange) + 500 * hann(11);
 %     up(1:end-1) = rand(length(up)-1, 1);
 end
@@ -251,7 +254,7 @@ flag = false;
 statesSave = [];
 % multiplierVec = reshape(repmat(multiplier, lengthSound / 4, 1), lengthSound, 1);
 for n = 1:lengthSound
-    [S, SHalf, SBar] = setTube (N+1, NnonExtended, n);
+    [S, SHalf, SBar] = setTube (N+1, NnonExtended, n, setToOnes);
 
     filterCoeff = 0.9999;
 
@@ -338,26 +341,36 @@ for n = 1:lengthSound
                     2 * (alf + 1) / ((alf + 2) * (alf + 1)), ...
                     -2 * alf / ((alf + 3) * (alf + 2))];
         if ~connectedWithP % if the new N connects at v prepare the statevectors (by adding to v)
-%             uvNext = [uvNext; (ip(4) * uvNext(end-1) + ip(3) * uvNext(end) + ip(2) * wvNext(1) + ip(1) * wvNext(2))];
-%             uv = [uv; (ip(4) * uv(end-1) + ip(3) * uv(end) + ip(2) * wv(1) + ip(1) * wv(2))];
-            uvNext = [uvNext; customIp * [uvNext(end-1:end); wvNext(1:2)]];
-            uv = [uv; customIp * [uv(end-1:end); wv(1:2)]];
-            wvNext = [fliplr(customIp) * [uvNext(end-1:end); wvNext(1:2)]; wvNext];
-            wv = [fliplr(customIp) * [uv(end-1:end); wv(1:2)]; wv];
-%             upMp1Prev =  IMPORTANT
+            uvNext = [uvNext; uvNextMph];
+            uv = [uv; uvMph];
+            
+            wvNext = [wvNextmh; wvNext];
+            wv = [wvmh; wv];
+           
+            upMp1 = customIp * [up(end-1:end); wp(1:2)]; % unnecessary
+            upMp1Prev = customIp * [upPrev(end-1:end); wpPrev(1:2)];
+            
+            wpm1 = fliplr(customIp) * [up(end-1:end); wp(1:2)]; % unnecessary
+            wpm1Prev = fliplr(customIp) * [upPrev(end-1:end); wpPrev(1:2)];
 
 
         else % if the new N connects at p prepare the statevectors (by adding to p)
-            upNext = [upNext; customIp * [upNext(end-1:end); wpNext(1:2)]];
-            up = [up; customIp * [up(end-1:end); wp(1:2)]];
-            upPrev = [upPrev; customIp * [upPrev(end-1:end); wpPrev(1:2)]];
+            upNext = [upNext; upMp1];
+            up = [up; upMp1];
+            upPrev = [upPrev; upMp1Prev];
 
-            wpNext = [fliplr(customIp) * [upNext(end-1:end); wpNext(1:2)]; wpNext];
-            wp = [fliplr(customIp) * [up(end-1:end); wp(1:2)]; wp];
-            wpPrev = [fliplr(customIp) * [upPrev(end-1:end); wpPrev(1:2)]; wpPrev];
-%             uvMph = IMPORTANT
+            wpNext = [wpm1; wpNext];
+            wp = [wpm1; wp];
+            wpPrev = [wpm1Prev; wpPrev];
+            
+            uvMphNext = customIp * [uvNext(end-1:end); wvNext(1:2)]; % unnecessary
+            uvMph = customIp * [uv(end-1:end); wv(1:2)];
+            
+            wvNextmh = fliplr(customIp) * [uvNext(end-1:end); wvNext(1:2)]; % unnecessary
+            wvmh = fliplr(customIp) * [uv(end-1:end); wv(1:2)];
+
         end
-        [S, SHalf, SBar] = setTube(N+1, NnonExtended,n);
+        [S, SHalf, SBar] = setTube(N+1, NnonExtended,n, setToOnes);
         % insert matrix creation here
         
         kinScalingU = ones(length(up),1);
@@ -387,7 +400,7 @@ for n = 1:lengthSound
         if flag
             disp("point removed")
         end
-        [S, SHalf, SBar] = setTube(N+1, NnonExtended, n);
+        [S, SHalf, SBar] = setTube(N+1, NnonExtended, n, setToOnes);
         
         kinScalingU = ones(length(up),1);
         kinScalingW = ones(length(wp),1);
@@ -601,8 +614,13 @@ for n = 1:lengthSound
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0 && n > drawStart
         if drawSetting == 0
-            hLocsLeft = (0:(length(up))-1) * h;
-            hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
+%             hLocsLeft = (0:(length(up))-1) * h;
+%             hLocsRight = flip(L - ((0:(length(wp)-1)) * h));   
+            locsLeft = 0:length(up)-1;
+            locsRight = (0:length(wp)-1)+length(up) + alf; 
+            if connectedWithP
+                locsRight = locsRight - 1;
+            end
     %         % Plot the velocity
     %         subplot(4,1,1)
     %         cla
@@ -636,38 +654,45 @@ for n = 1:lengthSound
     % %         plot(scaledTotEnergy(2:n))
     % % %         plot(totEnergy(10:n) - hTube(1) - hReed(1) - hColl(1) - hRad(1))
     % Plot the velocity
-            subplot(3,1,1)
+%     if ~connectedWithP        
+%         hLocsRight = hLocsRight + h;
+%     end
+    subplot(3,1,1)
             
             if connectedWithP
                 hold off;
-                plot(hLocsLeft / L, upNext, '-o');
+                plot(locsLeft, upNext, '-o');
                 hold on;
-                plot(hLocsRight / L, wpNext, '-o');
+                plot(locsRight, wpNext, '-o');
             else
                 hold off;
-                plot(hLocsLeft / L, up, '-o');
+                plot([locsLeft, locsLeft(end) + 1], [up; upMp1], '-o');
                 hold on;
-                plot(hLocsRight / L, wp, '-o');
-            end
-%                     xlim([hLocsLeft(end-5)/L, hLocsRight(5)/L])
+                plot([locsRight(1) - 1, locsRight], [wpm1; wp], '-o');
+                plot((locsLeft(end) + 1), upMp1, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                plot((locsRight(1) - 1), wpm1, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
 
+            end
+            xlim([locsLeft(end-10), locsRight(10)])
+%             ylim([-100, 100])
             subplot(3,1,2)
             if connectedWithP
                 hold off;
-                plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                plot(locsLeft + 0.5, [uvNext; uvNextMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
                 hold on;
-                plot(hLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-                plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                plot(hLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                plot(locsRight - 0.5, [wvNextmh; wvNext], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                plot(locsLeft(end) + 0.5, uvNextMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                plot(locsRight(1) - 0.5, wvNextmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
             else
                 hold off;
-                plot(hLocsLeft / L + 0.5 / N, uvNext / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
                 hold on;
-                plot(hLocsRight / L - 0.5 / N, wvNext / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                plot(locsRight - 0.5, wvNext, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
 
             end
 % 
-%             xlim([hLocsLeft(end-5)/L, hLocsRight(5)/L])
+            xlim([locsLeft(end-10), locsRight(10)])
+%             ylim([-1e-1, 1e-1])
 
             %             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
 %             plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
@@ -690,7 +715,7 @@ for n = 1:lengthSound
             subplot(3,1,3)
             plot(scaledTotEnergy(2:n))
     %         plot(totH(1:n));
-%             pause(0.5)
+            pause(0.5)
             drawnow;
         elseif drawSetting == 1
             subplot(3,1,1)
@@ -740,13 +765,17 @@ for n = 1:lengthSound
     %% Update states
     uv = uvNext;
     wv = wvNext;
-
+    
     upPrev = up;
-    up = upNext;
-        
-    wpPrev = wp;
-    wp = wpNext;
-
+    if connectedWithP
+        up = upNext;
+    end
+    
+    wpPrev = wp;     
+    if connectedWithP
+        wp = wpNext;
+    end
+    
     upMp1Prev = upMp1;
     wpm1Prev = wpm1;
     
@@ -764,40 +793,3 @@ for n = 1:lengthSound
 
 end
 plot(out)
-function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n)
-    lengths = [0.708, 0.177, 0.711, 0.306, 0.254, 0.502];
-    radii = [0.0069, 0.0072, 0.0069, 0.0071, 0.0075, 0.0107]; % two radii for tuning slide
-
-    lengthN = round(NnonExtended * lengths ./ sum(lengths));
-    addPointsAt = round(lengthN(1) + lengthN(2) * 0.5) + (N-NnonExtended) * 0.5; % indicate split of two connected schemes (including offset if N differs from NnonExtended
-    
-    inner1 = ones(lengthN(1), 1) * radii(1);
-    inner2 = ones(lengthN(3), 1) * radii(3);
-    gooseneck = ones(lengthN(4), 1) * radii(4);
-    tuning = linspace(radii(5), radii(6), lengthN(5))';
-    
-    x0 = 0.0174; 
-    b = 0.0063;
-    flare = 0.7;
-    bellL = lengthN(end);
-    
-    bell = b * ((lengths(6):-lengths(6) / (bellL - 1):0) + x0).^(-flare);
-
-    
-%     pointsLeft = N - length([mp, m2t, bell]);
-%     tube = linspace(m2t(end), m2t(end), pointsLeft);    % tube
-    totLengthN = length(inner1) + length(inner2) + length(gooseneck) + length(tuning) + length(bell);
-%     lengthN(2) = lengthN(2) + (N - NnonExtended + 1);
-    slide = ones(N - totLengthN, 1) * radii(2);
-    totRadii = [inner1; slide; inner2; gooseneck; tuning; bell'];
-    
-    % True geometry
-    S = totRadii.^2 * pi;
-%     S = 1 + 1 * 0.5 * (1 + sin(2 * pi * 100 * n / 44100)) * (ones(length(S), 1));
-    S = ones(size(S));
-    % Calculate approximations to the geometry
-    SHalf = (S(1:N-1) + S(2:N)) * 0.5;                  % mu_{x+}
-    SBar = (SHalf(1:end-1) + SHalf(2:end)) * 0.5;
-    SBar = [S(1); SBar; S(end)];                        % mu_{x-}S_{l+1/2}
-    
-end

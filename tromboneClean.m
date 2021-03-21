@@ -7,15 +7,14 @@ close all;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs;       % Duration (s)
+lengthSound = fs*2;       % Duration (s)
 
 % drawing variables
 drawThings = false;
-drawSetting = 0; % change to 0 to go back to previous drawing
 zoomPlot = false;
 
-drawSpeed = 1000;
-drawStart = 0;
+drawSpeed = 1;
+drawStart = 16400;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -46,7 +45,7 @@ if fixedNonInterpolatedL
 else
     Ninit = Nstart;
 end
-lambdaFact = 0.99999;
+lambdaFact = 0.9999;
 lambda = lambdaFact * c * k / h      % courant number
 
 LInit = Ninit*h;
@@ -68,8 +67,12 @@ setToOnes = false;
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
 %% Lip variables
-f0 = 300;
-
+f0 = linspace(385, 127.5, lengthSound); % should be different values, probably modal analysis will provide an answer here
+% f0 = 150;
+% 385.5 -> 2.658 m
+% 300 -> 3 m
+% 150 -> 3.60 m
+% 127.5 -> 3.7164 m
 Mlip = 5.37e-5;                % mass lips
 omega0 = 2 * pi * f0;   % angular freq
 
@@ -148,7 +151,7 @@ if ~connectedToLip
     end
         
 end
-
+justShiftedToConnectedV = false;
 % Initialise output
 out = zeros (lengthSound, 1);
 
@@ -202,10 +205,6 @@ for n = 1:lengthSound
 
         wvNext = wv - lambda / (rho * c) * (wp(2:end) - wp(1:end-1));
         wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - wpm1);
-        
-%         wvNextmh - uvNext(end)
-%         uvNextMph - wvNext(1)
-%         up(end) - wp(1)
 
     else
         %% Calculate interpolated velocities
@@ -221,14 +220,13 @@ for n = 1:lengthSound
 
         wp(wpRange-1) = wpPrev(wpRange-1) - rho * c * lambda ./ SBar(wpRange + length(up) - 2) .* (SHalf(wpRange + length(up) - 2) .* wv(wpRange) - SHalf(wpRange + length(up) - 3) .* wv(wpRange-1));
         wpm1 = wpm1Prev - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wv(1) - SHalf(length(up) - 1) .* wvmh);
-        
+
         if radiation
             wp(end) = ((1 - rho * c * lambda * z3) * wpPrev(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wv(end))/SBar(end))) / (1 + rho * c * lambda * z3);
         end
-        
+
         v1Next = v1 + k / (2 * Lr) * (wp(end) + wpPrev(end));
         p1Next = z1 / 2 * (wp(end) + wpPrev(end)) + z2 * p1;
-
         %% Calculate v^{n+1/2}
         uvNext(1:end-1) = uv(1:end-1) - lambda / (rho * c) * (up(2:end) - up(1:end-1));
         uvNext(end) = uv(end) - lambda / (rho * c) * (upMp1 - up(end));

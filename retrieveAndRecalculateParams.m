@@ -1,6 +1,7 @@
 %% Retrieve new parameters
 if changeL
-    Linc = 0.00002;
+    Ndiff = 1/500;
+    Linc = Ndiff * h;
     if (L < Lend)
         L =  L + Linc;
     elseif (L > Lend)
@@ -30,7 +31,7 @@ hSave(n) = h;
 lambda = lambdaFact * c * k / h;
 
 alf = (Ninit - N);
-
+alfSave(n) = alf;
 % connected with pressures or velocities?
 connectedWithP = (mod(N,2) == 0);
 %     connectedWithP = false;

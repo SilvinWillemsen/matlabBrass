@@ -5,22 +5,29 @@
 % clear all;
 close all;
 
+loadFiles = true;
+plotTromboneOutput;
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs*2;       % Duration (s)
+lengthSound = fs * 0.5;       % Duration (s)
 
 % drawing variables
-drawThings = false;
-zoomPlot = false;
+drawThings = true;
+zoomPlot = true;
+drawsetting = 1;
 
-drawSpeed = 1;
-drawStart = 16400;
+shouldDispCorr = true;
+correctV = true;
+
+drawSpeed = 5;
+drawStart = 1000;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
 
 changeL = ~fixedNonInterpolatedL;
 radiation = true;
+alternatePV = false;
 
 connectedToLip = true;
 
@@ -33,22 +40,23 @@ T = 26.85;
 
 %% Tube variables
 h = c * k;              % Grid spacing (m)
-NnonExtended = floor(LnonExtended / h);
-Nextended = floor(Lextended / h);
+NnonExtended = LnonExtended / h;
+Nextended = Lextended / h;
 
 Nstart = NnonExtended;
 Nend = Nextended;
-
+% Nstart = 350;
+% Nend = 350;
 if fixedNonInterpolatedL
     L = floor(Nstart) * h;
     Ninit = L / h;
 else
     Ninit = Nstart;
 end
-lambdaFact = 0.9999;
+lambdaFact = 0.999;
 lambda = lambdaFact * c * k / h      % courant number
 
-LInit = Ninit*h;
+LInit = Nstart*h;
 Lend = Nend * h;
 
 L = LInit;
@@ -57,7 +65,7 @@ N = floor(Ninit);         % Number of points (-)
 alf = Ninit - N;
 
 %% Lip Collision
-Kcol = 10000;
+Kcol = 0;
 alfCol = 3; 
 
 %% Set cross-sectional geometry
@@ -67,7 +75,7 @@ setToOnes = false;
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
 %% Lip variables
-f0 = linspace(385, 127.5, lengthSound); % should be different values, probably modal analysis will provide an answer here
+f0 = linspace(300, 300, lengthSound); % should be different values, probably modal analysis will provide an answer here
 % f0 = 150;
 % 385.5 -> 2.658 m
 % 300 -> 3 m
@@ -105,29 +113,43 @@ end
 upNext = zeros(ceil(addPointsAt) + 1, 1);
 up = zeros(ceil(addPointsAt) + 1, 1);
 upPrev = zeros(ceil(addPointsAt) + 1, 1);
+
 wpNext = zeros(floor(N-addPointsAt) + 1, 1);
 wp = zeros(floor(N-addPointsAt) + 1, 1);
 wpPrev = zeros(floor(N-addPointsAt) + 1, 1);
 
-connectedWithP = (mod(N,2) == 0);
+if alternatePV
+    connectedWithP = (mod(N,2) == 0);
+else
+    connectedWithP = true;
+end
 % connectedWithP = false;
 
 if connectedWithP
     uvNext = zeros(ceil(addPointsAt), 1); 
     uv = zeros(ceil(addPointsAt), 1);
+    uvPrev = zeros(ceil(addPointsAt), 1);
+    
     wvNext = zeros(floor(N-addPointsAt), 1); % the total v vector is one smaller than the total p vector
     wv = zeros(floor(N-addPointsAt), 1);
+    wvPrev = zeros(floor(N-addPointsAt), 1);
 
 else
     uvNext = zeros(ceil(addPointsAt) + 1, 1); 
     uv = zeros(ceil(addPointsAt) + 1, 1);
+    uvPrev = zeros(ceil(addPointsAt) + 1, 1);
+
     wvNext = zeros(floor(N-addPointsAt) + 1, 1); % the total v vector is one smaller than the total p vector
     wv = zeros(floor(N-addPointsAt) + 1, 1);
+    wvPrev = zeros(floor(N-addPointsAt) + 1, 1);
 
 end
          
+uvMphPrev = 0;
 uvMph = 0;
 uvNextMph = 0;
+
+wvmhPrev = 0;
 wvmh = 0;
 wvNextmh = 0;
 
@@ -151,7 +173,6 @@ if ~connectedToLip
     end
         
 end
-justShiftedToConnectedV = false;
 % Initialise output
 out = zeros (lengthSound, 1);
 
@@ -239,7 +260,10 @@ for n = 1:lengthSound
 
 
     end
-    
+    if shouldDispCorr && ~connectedWithP
+        displacementCorrection;
+    end
+
     Pm = amp;
     
     if connectedToLip
@@ -291,7 +315,7 @@ for n = 1:lengthSound
         upNext(1) = up(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * uvNext(1));
         upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNextMph - SHalf(length(up) - 1) .* uvNext(end));
 
-        wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 2) .* (SHalf(wpRange + length(up) - 2) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 3) .* wvNext(wpRange-1));
+        wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
         wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
         if radiation
             wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
@@ -299,129 +323,180 @@ for n = 1:lengthSound
         v1Next = v1 + k / (2 * Lr) * (wpNext(end) + wp(end));
         p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
     end
+    
+    if shouldDispCorr && connectedWithP
+        displacementCorrection;
+    end
+    
     %% Set output from output position
     out(n) = wp(end-1);
 
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0 && n > drawStart
 
-        locsLeft = 0:length(up)-1;
-        locsRight = (0:length(wp)-1)+length(up) + alf; 
-        if connectedWithP
-            locsRight = locsRight - 1;
-        end
-        plotPrev = false;
-        if plotPrev
-              %% Plot pressures
-            subplot(2,1,1)
+        if drawsetting == 0
+            locsLeft = 0:length(up)-1;
+            locsRight = (0:length(wp)-1)+length(up) + alf; 
             if connectedWithP
-                hold off;
-                plot(locsLeft, upPrev, '-o');
-                hold on;
-                plot(locsRight, wpPrev, '-o');
-            else
-                hold off;
-                plot([locsLeft, locsLeft(end) + 1], [upPrev; upMp1Prev], '-o');
-                hold on;
-                plot([locsRight(1) - 1, locsRight], [wpm1Prev; wpPrev], '-o');
-                plot((locsLeft(end) + 1), upMp1Prev, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                plot((locsRight(1) - 1), wpm1Prev, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-
+                locsRight = locsRight - 1;
             end
-    %         xlim([locsLeft(end-10), locsRight(10)])
-%             ylim([-2, 2])
-            %% Plot velocities
-            subplot(2,1,2)
-            if connectedWithP
-                hold off;
-                plot(locsLeft + 0.5, [uv; uvMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-                hold on;
-                plot(locsRight - 0.5, [wvmh; wv], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-                plot(locsLeft(end) + 0.5, uvMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                plot(locsRight(1) - 0.5, wvmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+            plotPrev = false;
+            if plotPrev
+                  %% Plot pressures
+                subplot(2,1,1)
+                if connectedWithP
+                    hold off;
+                    plot(locsLeft, upPrev, '-o');
+                    hold on;
+                    plot(locsRight, wpPrev, '-o');
+                else
+                    hold off;
+                    plot([locsLeft, locsLeft(end) + 1], [upPrev; upMp1Prev], '-o');
+                    hold on;
+                    plot([locsRight(1) - 1, locsRight], [wpm1Prev; wpPrev], '-o');
+                    plot((locsLeft(end) + 1), upMp1Prev, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                    plot((locsRight(1) - 1), wpm1Prev, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+
+                end
+        %         xlim([locsLeft(end-10), locsRight(10)])
+    %             ylim([-2, 2])
+                %% Plot velocities
+                subplot(2,1,2)
+                if connectedWithP
+                    hold off;
+                    plot(locsLeft + 0.5, [uv; uvMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                    hold on;
+                    plot(locsRight - 0.5, [wvmh; wv], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                    plot(locsLeft(end) + 0.5, uvMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                    plot(locsRight(1) - 0.5, wvmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                else
+                    hold off;
+                    plot(locsLeft + 0.5, uv, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                    hold on;
+                    plot(locsRight - 0.5, wv, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+
+                end
+    %             ylim([-1e-2, 1e-2])
+
+        %         xlim([locsLeft(end-10), locsRight(10)])
+                pause(0.1)
+                drawnow;
             else
-                hold off;
-                plot(locsLeft + 0.5, uv, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-                hold on;
-                plot(locsRight - 0.5, wv, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
 
+                %% Plot pressures
+                subplot(2,1,1)
+                if connectedWithP
+                    hold off;
+                    plot(locsLeft, up, '-o');
+                    hold on;
+                    plot(locsRight, wp, '-o');
+                else
+                    hold off;
+                    plot([locsLeft, locsLeft(end) + 1], [up; upMp1], '-o');
+                    hold on;
+                    plot([locsRight(1) - 1, locsRight], [wpm1; wp], '-o');
+                    plot((locsLeft(end) + 1), upMp1, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                    plot((locsRight(1) - 1), wpm1, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+
+                end
+                if zoomPlot
+                    xlim([locsLeft(end-10), locsRight(10)])
+    %                     xlim([locsRight(end-10), locsRight(end)])
+
+                end
+    %             ylim([-2, 2])
+                %% Plot velocities
+                subplot(2,1,2)
+                if connectedWithP
+                    hold off;
+                    plot(locsLeft + 0.5, [uvNext; uvNextMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                    hold on;
+                    plot(locsRight - 0.5, [wvNextmh; wvNext], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                    plot(locsLeft(end) + 0.5, uvNextMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                    plot(locsRight(1) - 0.5, wvNextmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                else
+                    hold off;
+                    plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                    hold on;
+                    plot(locsRight - 0.5, wvNext, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+
+                end
+    %             ylim([-1e-2, 1e-2])
+                if zoomPlot
+                    xlim([locsLeft(end-10), locsRight(10)])
+    %                     xlim([locsRight(end-10), locsRight(end)])
+                end
+                pause(0.5)
+                drawnow;
             end
-%             ylim([-1e-2, 1e-2])
-
-    %         xlim([locsLeft(end-10), locsRight(10)])
-            pause(0.1)
-            drawnow;
-        else
-
-            %% Plot pressures
-            subplot(2,1,1)
-            if connectedWithP
-                hold off;
-                plot(locsLeft, up, '-o');
-                hold on;
-                plot(locsRight, wp, '-o');
-            else
-                hold off;
-                plot([locsLeft, locsLeft(end) + 1], [up; upMp1], '-o');
-                hold on;
-                plot([locsRight(1) - 1, locsRight], [wpm1; wp], '-o');
-                plot((locsLeft(end) + 1), upMp1, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                plot((locsRight(1) - 1), wpm1, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-
-            end
+        elseif drawsetting == 1
+            subplot(3,1,1)
+            hold off;
+            plot(1:length(up), up);
+%             plot(1:length(uv), uv);
+            hold on
+            plot(1:M(n)+1, pState(n, 1:M(n)+1), 'Marker', '.', 'MarkerSize', 10);
+            plot((1:length(wp)) + length(up) - 1 + alf, wp);
+            plot((M(n)+1:(M(n)+Mw(n) + 1)) + alfSave(n), pState(n, (maxM+2):(maxM+Mw(n)+2)), 'Marker', 'o', 'MarkerSize', 2);
             if zoomPlot
-                xlim([locsLeft(end-10), locsRight(10)])
-%                     xlim([locsRight(end-10), locsRight(end)])
-
+                xlim([M(n) - 5, (M(n)+5)])
             end
-%             ylim([-2, 2])
-            %% Plot velocities
-            subplot(2,1,2)
-            if connectedWithP
-                hold off;
-                plot(locsLeft + 0.5, [uvNext; uvNextMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-                hold on;
-                plot(locsRight - 0.5, [wvNextmh; wvNext], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-                plot(locsLeft(end) + 0.5, uvNextMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                plot(locsRight(1) - 0.5, wvNextmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-            else
-                hold off;
-                plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-                hold on;
-                plot(locsRight - 0.5, wvNext, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-
-            end
-%             ylim([-1e-2, 1e-2])
+%             plot (sqrt(S / pi) * 100 * amp, 'k')
+%             hold on
+%             plot (sqrt(Ssave(n, :) / pi) * 100 * amp, '--k')
+%             hold off
+%             plot((1:length(wp)) + length(up) - 1, pState(n, (1:length(wp)) + length(up))');
+%             plot((1:length(wv)) + length(uv) - 1 + alf, wv);
+% 
+            subplot(3,1,2)
+            hold off;
+            plot(1:length(uv), uv);
+%             plot(1:length(uv), uv);
+            hold on
+            plot(1:M(n), vState(n, 1:M(n)), 'Marker', '.', 'MarkerSize', 10);
+            plot((1:length(wv)) + length(uv) + alf, wv);
+            plot((M(n)+1:(M(n)+Mw(n))) + alfSave(n), vState(n, (maxM+1):(maxM+Mw(n))), 'Marker', 'o', 'MarkerSize', 2);
             if zoomPlot
-                xlim([locsLeft(end-10), locsRight(10)])
-%                     xlim([locsRight(end-10), locsRight(end)])
+                xlim([M(n) - 5, (M(n)+5)])
             end
-            pause(0.5)
+            subplot(3,1,3)
+            plot([1:length(up), (1:length(wp)) + length(up) - 1 + alf], [up', wp'] - [pState(n, 1:M(n)+1), pState(n, (maxM+2):(maxM+Mw(n)+2)) ])
+%             hold off;
+%             plot(1:length(up), up, '-o');
+%             hold on;   
+%             plot((1:length(wp))+length(up)-1, wp, '-o');  
+            pause(0.5);
             drawnow;
         end
+            
     end
 
     %% Update states
+    uvPrev = uv;
     uv = uvNext;
+       
+    wvPrev = wv;
     wv = wvNext;
     
     upPrev = up;
-    if connectedWithP
+    if connectedWithP % only do this when upNext is actually updated
         up = upNext;
     end
     
     wpPrev = wp;     
-    if connectedWithP
+    if connectedWithP % only do this when wpNext is actually updated
         wp = wpNext;
     end
     
     upMp1Prev = upMp1;
     wpm1Prev = wpm1;
-    
+        
+    uvMphPrev = uvMph; % for displacement correction
     uvMph = uvNextMph;
     
+    wvmhPrev = wvmh; % for displacement correction
     wvmh = wvNextmh;
-    
+
     if radiation
         p1 = p1Next;
         v1 = v1Next;

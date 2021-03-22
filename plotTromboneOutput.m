@@ -1,18 +1,18 @@
 clc;
 % clear all;
 close all
-loadFiles = true;
 if loadFiles
     clear all;
     onlyLoadFiles = true; % so no plotting when true
     onlyLoadOutput = false;
-    drawStart = 1;
-    drawSpeed = 100;
+    drawStart = 10000;
+    drawSpeed = 10;
     mode = "Debug";
     loadTromboneFiles;
 end
 lengthSound  = length(output);
-
+drawStart = 10000;
+drawSpeed = 10;
 % plot(output)
 % pause(1)
 if onlyLoadFiles

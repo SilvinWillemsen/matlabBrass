@@ -2,11 +2,11 @@
     Full trombone: lip, dynamic tube with proper geometry, radiation 
 %}
 
-% clear all;
+clear all;
 close all;
 
-loadFiles = true;
-plotTromboneOutput;
+% loadFiles = true;
+% plotTromboneOutput;
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
 lengthSound = fs * 0.5;       % Duration (s)
@@ -14,10 +14,10 @@ lengthSound = fs * 0.5;       % Duration (s)
 % drawing variables
 drawThings = true;
 zoomPlot = true;
-drawsetting = 1;
+drawsetting = 0;
 
 shouldDispCorr = true;
-correctV = true;
+correctV = false;
 
 drawSpeed = 5;
 drawStart = 1000;
@@ -45,8 +45,8 @@ Nextended = Lextended / h;
 
 Nstart = NnonExtended;
 Nend = Nextended;
-% Nstart = 350;
-% Nend = 350;
+Nstart = 337;
+Nend = 338;
 if fixedNonInterpolatedL
     L = floor(Nstart) * h;
     Ninit = L / h;

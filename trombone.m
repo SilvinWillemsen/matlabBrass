@@ -7,10 +7,10 @@ close all;
 
 % drawing variables
 drawThings = true;
-drawSetting = 1; % change to 0 to go back to previous drawing
+drawSetting = 0; % change to 0 to go back to previous drawing
 
-drawSpeed = 100;
-drawStart = 0;
+drawSpeed = 1;
+drawStart = 70;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -24,7 +24,7 @@ changeL = ~fixedNonInterpolatedL;
 changeF0 = true;
 radiation = true;
 
-connectedToLip = true;
+connectedToLip = false;
 
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
@@ -81,8 +81,8 @@ for i = 1:length(melody)
     freqsRange(range + length(range) * (i-1)) = (2-pitchGlide) .* freqs(i);
     lengthRange(range + length(range) * (i-1)) = pitchGlide .* lengths(i);
 end
-L = lengthRange(1);          % Length
-% L = Lextended;
+% L = lengthRange(1);          % Length
+L = LnonExtended;
 LInit = L;
 Ninit = L/h;
 N = floor(Ninit);         % Number of points (-)
@@ -130,19 +130,24 @@ upNext = zeros(ceil(addPointsAt) + 1, 1);
 up = zeros(ceil(addPointsAt) + 1, 1);
 uvNext = zeros(ceil(addPointsAt), 1); 
 uv = zeros(ceil(addPointsAt), 1);
-
-if ~connectedToLip
-%     inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
-    inputRange = 21:31;
-    up(floor(inputRange)) = up(floor(inputRange)) + 1000 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
-%     up(floor(inputRange)) = up(inputRange) + 500 * hann(11);
-%     up(1:end-1) = rand(length(up)-1, 1);
-end
-
 wpNext = zeros(floor(N-addPointsAt) + 1, 1);
 wp = zeros(floor(N-addPointsAt) + 1, 1);
 wvNext = zeros(floor(N-addPointsAt), 1); % the total v vector is one smaller than the total p vector
 wv = zeros(floor(N-addPointsAt), 1);
+
+
+if ~connectedToLip
+%     inputRange = floor(length(up) / 4 - 5):floor(length(up)/4) + 5;
+    inputRange = 21:31;
+%     up(floor(inputRange)) = up(floor(inputRange)) + 1000 * (1.0 - cos (2.0 * pi * (0:length(inputRange)-1)' / (length(inputRange) - 1))) * 0.5;
+% %     up(floor(inputRange)) = up(inputRange) + 500 * hann(11);
+% %     up(1:end-1) = rand(length(up)-1, 1);
+        width = floor(0.2 * length(wp));
+        loc = floor(0.5 * length(wp));
+        inputRange = (loc-width) : (loc+width);
+        wp(inputRange) = wp(inputRange) + hann(width*2+1);
+        wpPrev = wp;
+end
 
 % Initialise output
 out = zeros (lengthSound, 1);
@@ -232,7 +237,8 @@ for n = 1:lengthSound
 %         L = LInit * (1 + 0.5 * n / fs);
 %         L = LInit * (2^sin(2 * pi * n/lengthSound));
 %         L = (1-filterCoeff) * lengthRange(n) + filterCoeff * LPrev;
-        Linc = 0.0002;
+        Ndiff = 1/200;
+        Linc = Ndiff * h;
         if (L < lengthRange(n))
             L =  L + Linc;
         elseif (L > lengthRange(n))
@@ -571,11 +577,17 @@ for n = 1:lengthSound
             hold on;
             plot(hLocsLeft / L, up, '-o');
             plot(pLocsRight / L, wp, '-o');
+            xlim([hLocsLeft(end-10) / L, pLocsRight(10) / L])
+
+            subplot(3,1,2)
+            hold off;
             plot(hLocsLeft / L + 0.5 / N, [uvNext; uvNextMph] / amp, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+            hold on;
             plot(pLocsRight / L - 0.5 / N, [wvNextmh; wvNext] / amp, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
             plot(hLocsLeft(end) / L + 0.5 / N, uvNextMph / amp, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
             plot(pLocsRight(1) / L - 0.5 / N, wvNextmh / amp, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
-%             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
+            xlim([hLocsLeft(end-10) / L, pLocsRight(10) / L])
+            %             test1 = find(S(1:length(S) - 66) ~= S(2:length(S)- 65));
 %             plot([test1(1) / N; test1(1) / N], 10 * [-amp, amp])
 %             plot([test1(2) / N; test1(2) / N], 10 * [-amp, amp])
 %             plot([hLocsLeft(1:end-1), hLocsRight] / L, sqrt(S / pi) * 100 * amp, 'k');
@@ -586,17 +598,17 @@ for n = 1:lengthSound
     %         xlim([0.49 0.51])
 %             ylim([-amp * 10 amp * 10])
     %         Plot scaled energy
-            subplot(3,1,2)
-            plot(out(1:n))
-    %         hold off
-    %         plot(kinEnergyU(1:n) + kinEnergyW(1:n))
-    %         hold on;
-    %         plot(potEnergyU(1:n) + potEnergyW(1:n))
-    %         plot(totEnergy(1:n) / totEnergy(1) - 1)
-            subplot(3,1,3)
-            plot(scaledTotEnergy(2:n))
-    %         plot(totH(1:n));
-            pause(0.5)
+%             subplot(3,1,2)
+%             plot(out(1:n))
+%     %         hold off
+%     %         plot(kinEnergyU(1:n) + kinEnergyW(1:n))
+%     %         hold on;
+%     %         plot(potEnergyU(1:n) + potEnergyW(1:n))
+%     %         plot(totEnergy(1:n) / totEnergy(1) - 1)
+%             subplot(3,1,3)
+%             plot(scaledTotEnergy(2:n))
+%     %         plot(totH(1:n));
+            pause(0.25)
             drawnow;
         elseif drawSetting == 1
             subplot(3,1,1)

@@ -9,18 +9,19 @@ close all;
 % plotTromboneOutput;
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs * 0.5;       % Duration (s)
+lengthSound = fs * 2;       % Duration (s)
 
 % drawing variables
-drawThings = true;
+drawThings = false;
 zoomPlot = true;
 drawsetting = 0;
 
 shouldDispCorr = true;
-correctV = false;
+correctV = true;
+correctVirtual = false;
 
-drawSpeed = 5;
-drawStart = 1000;
+drawSpeed = 1;
+drawStart = 50;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -45,8 +46,11 @@ Nextended = Lextended / h;
 
 Nstart = NnonExtended;
 Nend = Nextended;
-Nstart = 337;
-Nend = 338;
+% Nstart = Nextended;
+% Nend = NnonExtended;
+
+% Nstart = 337;
+% Nend = 338;
 if fixedNonInterpolatedL
     L = floor(Nstart) * h;
     Ninit = L / h;
@@ -126,13 +130,15 @@ end
 % connectedWithP = false;
 
 if connectedWithP
-    uvNext = zeros(ceil(addPointsAt), 1); 
-    uv = zeros(ceil(addPointsAt), 1);
-    uvPrev = zeros(ceil(addPointsAt), 1);
+    % the total v vectors contain the virtual grid points
+
+    uvNext = zeros(ceil(addPointsAt)+1, 1); 
+    uv = zeros(ceil(addPointsAt)+1, 1);
+    uvPrev = zeros(ceil(addPointsAt)+1, 1);
     
-    wvNext = zeros(floor(N-addPointsAt), 1); % the total v vector is one smaller than the total p vector
-    wv = zeros(floor(N-addPointsAt), 1);
-    wvPrev = zeros(floor(N-addPointsAt), 1);
+    wvNext = zeros(floor(N-addPointsAt)+1, 1); 
+    wv = zeros(floor(N-addPointsAt)+1, 1);
+    wvPrev = zeros(floor(N-addPointsAt)+1, 1);
 
 else
     uvNext = zeros(ceil(addPointsAt) + 1, 1); 
@@ -146,12 +152,8 @@ else
 end
          
 uvMphPrev = 0;
-uvMph = 0;
-uvNextMph = 0;
 
 wvmhPrev = 0;
-wvmh = 0;
-wvNextmh = 0;
 
 upMp1Prev = 0;
 wpm1Prev = 0;
@@ -221,16 +223,16 @@ for n = 1:lengthSound
         wpm1 = up(end-1) * quadIp(1) + up(end) * quadIp(2) + wp(1) * quadIp(3);
 
         %% Calculate v^{n+1/2}
-        uvNext = uv - lambda / (rho * c) * (up(2:end) - up(1:end-1));
-        uvNextMph = uvMph - lambda / (rho * c) * (upMp1 - up(end));
+        uvNext(1:end-1) = uv(1:end-1) - lambda / (rho * c) * (up(2:end) - up(1:end-1));
+        uvNext(end) = uv(end) - lambda / (rho * c) * (upMp1 - up(end));
 
-        wvNext = wv - lambda / (rho * c) * (wp(2:end) - wp(1:end-1));
-        wvNextmh = wvmh - lambda / (rho * c) * (wp(1) - wpm1);
+        wvNext(2:end) = wv(2:end) - lambda / (rho * c) * (wp(2:end) - wp(1:end-1));
+        wvNext(1) = wv(1) - lambda / (rho * c) * (wp(1) - wpm1);
 
-    else
+    else % NOT SURE IF ALL OF THIS STILL WORKS NOW THAT VIRTUAL GRID POINTS ARE INCLUDED
         %% Calculate interpolated velocities
-        uvMph = uv(end) * quadIp(3) + wv(1) * quadIp(2) + wv(2) * quadIp(1);
-        wvmh = uv(end-1) * quadIp(1) + uv(end) * quadIp(2) + wv(1) * quadIp(3);
+        uvMph = uv(end) * quadIp(3) + wv(2) * quadIp(2) + wv(3) * quadIp(1);
+        wvmh = uv(end-1) * quadIp(1) + uv(end) * quadIp(2) + wv(2) * quadIp(3);
 
         %% Calculate p^n
         up(upRange) = upPrev(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uv(upRange) - SHalf(upRange-1) .* uv(upRange-1));
@@ -260,7 +262,7 @@ for n = 1:lengthSound
 
 
     end
-    if shouldDispCorr && ~connectedWithP
+    if shouldDispCorr
         displacementCorrection;
     end
 
@@ -313,10 +315,10 @@ for n = 1:lengthSound
         %% Calculate pressure
         upNext(upRange) = up(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uvNext(upRange) - SHalf(upRange-1) .* uvNext(upRange-1));
         upNext(1) = up(1) - rho * c * lambda / SBar(1) .* (-2 * (Ub + Ur) + 2 * SHalf(1) * uvNext(1));
-        upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNextMph - SHalf(length(up) - 1) .* uvNext(end));
+%         upNext(end) = up(end) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* uvNext(end) - SHalf(length(up) - 1) .* uvNext(end-1));
 
-        wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange-1));
-        wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
+        wpNext(wpRange) = wp(wpRange) - rho * c * lambda ./ SBar(wpRange + length(up) - 1) .* (SHalf(wpRange + length(up) - 1) .* wvNext(wpRange+1) - SHalf(wpRange + length(up) - 2) .* wvNext(wpRange));
+%         wpNext(1) = wp(1) - rho * c * lambda ./ SBar(length(up)) .* (SHalf(length(up)) .* wvNext(1) - SHalf(length(up) - 1) .* wvNextmh);
         if radiation
             wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - (SHalf(end) .* wvNext(end))/SBar(end))) / (1 + rho * c * lambda * z3);
         end
@@ -364,11 +366,11 @@ for n = 1:lengthSound
                 subplot(2,1,2)
                 if connectedWithP
                     hold off;
-                    plot(locsLeft + 0.5, [uv; uvMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                    plot(locsLeft + 0.5, uv, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
                     hold on;
-                    plot(locsRight - 0.5, [wvmh; wv], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-                    plot(locsLeft(end) + 0.5, uvMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                    plot(locsRight(1) - 0.5, wvmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                    plot(locsRight - 0.5, wv, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                    plot(locsLeft(end) + 0.5, uv(end), 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                    plot(locsRight(1) - 0.5, wv(1), 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
                 else
                     hold off;
                     plot(locsLeft + 0.5, uv, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
@@ -409,11 +411,11 @@ for n = 1:lengthSound
                 subplot(2,1,2)
                 if connectedWithP
                     hold off;
-                    plot(locsLeft + 0.5, [uvNext; uvNextMph], 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                    plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
                     hold on;
-                    plot(locsRight - 0.5, [wvNextmh; wvNext], 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-                    plot(locsLeft(end) + 0.5, uvNextMph, 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                    plot(locsRight(1) - 0.5, wvNextmh, 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                    plot(locsRight - 0.5, wvNext, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                    plot(locsLeft(end) + 0.5, uvNext(end), 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                    plot(locsRight(1) - 0.5, wvNext(1), 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
                 else
                     hold off;
                     plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
@@ -450,11 +452,11 @@ for n = 1:lengthSound
 % 
             subplot(3,1,2)
             hold off;
-            plot(1:length(uv), uv);
+            plot(1:length(uv)-1, uv);
 %             plot(1:length(uv), uv);
             hold on
             plot(1:M(n), vState(n, 1:M(n)), 'Marker', '.', 'MarkerSize', 10);
-            plot((1:length(wv)) + length(uv) + alf, wv);
+            plot((2:length(wv)) + length(uv) + alf, wv(2:end));
             plot((M(n)+1:(M(n)+Mw(n))) + alfSave(n), vState(n, (maxM+1):(maxM+Mw(n))), 'Marker', 'o', 'MarkerSize', 2);
             if zoomPlot
                 xlim([M(n) - 5, (M(n)+5)])
@@ -490,12 +492,6 @@ for n = 1:lengthSound
     
     upMp1Prev = upMp1;
     wpm1Prev = wpm1;
-        
-    uvMphPrev = uvMph; % for displacement correction
-    uvMph = uvNextMph;
-    
-    wvmhPrev = wvmh; % for displacement correction
-    wvmh = wvNextmh;
 
     if radiation
         p1 = p1Next;

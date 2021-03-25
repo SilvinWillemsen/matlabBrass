@@ -34,10 +34,10 @@ if N > NPrev
                 wv = [wvmh; wv];
             end
         else % if the new N connects at p prepare the statevectors (by adding to p)
-
+            % NOT SURE IF ALL OF THIS STILL WORKS NOW THAT VIRTUAL GRID POINTS ARE INCLUDED
             %% Here, also calculate p^n as that hasn't been done yet when switching to this setting
-            uvMph = uv(end) * quadIp(3) + wv(1) * quadIp(2) + wv(2) * quadIp(1);
-            wvmh = uv(end-1) * quadIp(1) + uv(end) * quadIp(2) + wv(1) * quadIp(3);
+            uvMph = uv(end) * quadIp(3) + wv(2) * quadIp(2) + wv(3) * quadIp(1);
+            wvmh = uv(end-1) * quadIp(1) + uv(end) * quadIp(2) + wv(2) * quadIp(3);
 
             %% Calculate p^n
             up(upRange) = upPrev(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uv(upRange) - SHalf(upRange-1) .* uv(upRange-1));
@@ -83,23 +83,17 @@ if N > NPrev
         end
     else
         if mod(N,2) == 1
-            % important to do this first so uv(end) becomes uvMph and will
-            % be used to calculate the new uvMph in the interpolation below
-            uvNext = [uv; uvNextMph];
-            uv = [uv; uvMph];
-            
-            uvMph =  customIp * [uv(end-1:end); wv(1:2)];
+            uvNext = [uvNext; customIp * [uvNext(end-1:end); wvNext(2:3)]];
+            uv = [uv; customIp * [uv(end-1:end); wv(2:3)]];
             
             upNext = [upNext; customIp * [upNext(end-1:end); wpNext(1:2)]];
             up = [up; customIp * [up(end-1:end); wp(1:2)]];
             upPrev = [upPrev; customIp * [upPrev(end-1:end); wpPrev(1:2)]];
 
         else 
-            wvNext = [wvNextmh; wvNext];
-            wv = [wvmh; wv];
-            
-            wvmh =  fliplr(customIp) * [uv(end-1:end); wv(1:2)];
-            
+            wvNext = [fliplr(customIp) * [uv(end-2:end-1); wv(1:2)]; wvNext];
+            wv = [fliplr(customIp) * [uv(end-2:end-1); wv(1:2)]; wv];
+                        
             wpNext = [fliplr(customIp) * [upNext(end-1:end); wpNext(1:2)]; wpNext];
             wp = [fliplr(customIp) * [up(end-1:end); wp(1:2)]; wp];
             wpPrev = [fliplr(customIp) * [upPrev(end-1:end); wpPrev(1:2)]; wpPrev];
@@ -116,9 +110,11 @@ end
 if N < NPrev
     if alternatePV
         if connectedWithP % remove from v to be connected at p
+            % NOT SURE IF ALL OF THIS STILL WORKS NOW THAT VIRTUAL GRID POINTS ARE INCLUDED
+
             %% Here, also calculate p^n as that hasn't been done yet when switching to this setting
-            uvMph = uv(end) * quadIp(3) + wv(1) * quadIp(2) + wv(2) * quadIp(1);
-            wvmh = uv(end-1) * quadIp(1) + uv(end) * quadIp(2) + wv(1) * quadIp(3);
+            uv(end) = uv(end-1) * quadIp(3) + wv(1) * quadIp(2) + wv(2) * quadIp(1);
+            wv(1) = uv(end-2) * quadIp(1) + uv(end-1) * quadIp(2) + wv(1) * quadIp(3);
 
             %% Calculate p^n
             up(upRange) = upPrev(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uv(upRange) - SHalf(upRange-1) .* uv(upRange-1));
@@ -164,11 +160,9 @@ if N < NPrev
         end
     else
         if mod(N,2) == 0
-            if useAvg
-                uvMph = (uv(end) + wvmh) * 0.5;
-            else
-                uvMph = uv(end);
-            end
+            % useavg is gone here now (using virtual gridpoints within the
+            % vectors)
+            
             uvNext = uvNext(1:end-1);
             uv = uv(1:end-1);
             uvPrev = uvPrev(1:end-1);
@@ -177,11 +171,9 @@ if N < NPrev
             up = up(1:end-1);
             upPrev = upPrev(1:end-1);
         else 
-            if useAvg
-                wvmh = (wv(1) + uvMph) * 0.5;
-            else
-                wvmh = wv(1);
-            end
+           % useavg is gone here now (using virtual gridpoints within the
+            % vectors)
+
             wvNext = wvNext(2:end);
             wv = wv(2:end);
             wvPrev = wvPrev(2:end);
@@ -198,10 +190,10 @@ if N < NPrev
         
 end
 if connectedWithP
-    upRange = 2:length(up)-1;         % range without boundaries
-    wpRange = 2:length(wp)-1;
+    upRange = 2:length(up);         
+    wpRange = 1:length(wp)-1;
 else
-    upRange = 2:length(up);         % range without boundaries
+    upRange = 2:length(up);         
     wpRange = 2:length(wp);
 end
 

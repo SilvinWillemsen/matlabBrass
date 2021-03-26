@@ -79,7 +79,7 @@ setToOnes = false;
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
 %% Lip variables
-f0 = linspace(228, 228, lengthSound); % should be different values, probably modal analysis will provide an answer here
+f0 = linspace(275, 275, lengthSound); % should be different values, probably modal analysis will provide an answer here
 % f0 = 150;
 % 385.5 -> 2.658 m
 % 300 -> 3 m

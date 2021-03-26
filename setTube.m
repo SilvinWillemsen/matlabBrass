@@ -7,16 +7,16 @@ function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n, setToOnes)
 
     mouthPiece = 0.013 * (0.45 * (1 + cos(pi * ((1:lengthN(1))'-1) / (lengthN(1)-1))) + 0.1);
     inner1 = ones(lengthN(2), 1) * radii(1);
-    inner2 = ones(lengthN(3), 1) * radii(3);
-    gooseneck = ones(lengthN(4), 1) * radii(4);
-    tuning = linspace(radii(5), radii(6), lengthN(5))';
+    inner2 = ones(lengthN(4), 1) * radii(3);
+    gooseneck = ones(lengthN(5), 1) * radii(4);
+    tuning = linspace(radii(5), radii(6), lengthN(6))';
 
     x0 = 0.0174; 
     b = 0.0063;
     flare = 0.7;
     bellL = lengthN(end);
 
-    bell = b * ((lengths(6):-lengths(6) / (bellL - 1):0) + x0).^(-flare);
+    bell = b * ((lengths(7):-lengths(7) / (bellL - 1):0) + x0).^(-flare);
 
 
 %     pointsLeft = N - length([mp, m2t, bell]);

@@ -1,6 +1,6 @@
 %% Retrieve new parameters
 if changeL
-    Ndiff = 1/200;
+    Ndiff = 1/50;
     Linc = Ndiff * h;
     if (L < Lend)
         L =  L + Linc;

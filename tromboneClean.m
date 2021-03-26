@@ -13,15 +13,15 @@ lengthSound = fs * 2;       % Duration (s)
 
 % drawing variables
 drawThings = false;
-zoomPlot = true;
+zoomPlot = false;
 drawsetting = 0;
 
 shouldDispCorr = true;
-correctV = true;
+correctV = false;
 correctVirtual = false;
 
-drawSpeed = 1;
-drawStart = 50;
+drawSpeed = 100;
+drawStart = 1;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -32,8 +32,8 @@ alternatePV = false;
 
 connectedToLip = true;
 
-LnonExtended = 2.658;
-Lextended = 3.718;
+LnonExtended = 2.593;
+Lextended = 3.653;
 
 %% viscothermal effects
 T = 26.85;
@@ -45,7 +45,7 @@ NnonExtended = LnonExtended / h;
 Nextended = Lextended / h;
 
 Nstart = NnonExtended;
-Nend = Nextended;
+Nend = NnonExtended;
 % Nstart = Nextended;
 % Nend = NnonExtended;
 
@@ -69,7 +69,7 @@ N = floor(Ninit);         % Number of points (-)
 alf = Ninit - N;
 
 %% Lip Collision
-Kcol = 0;
+Kcol = 10000;
 alfCol = 3; 
 
 %% Set cross-sectional geometry
@@ -79,7 +79,7 @@ setToOnes = false;
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
 %% Lip variables
-f0 = linspace(300, 300, lengthSound); % should be different values, probably modal analysis will provide an answer here
+f0 = linspace(228, 228, lengthSound); % should be different values, probably modal analysis will provide an answer here
 % f0 = 150;
 % 385.5 -> 2.658 m
 % 300 -> 3 m
@@ -265,9 +265,12 @@ for n = 1:lengthSound
     if shouldDispCorr
         displacementCorrection;
     end
-
-    Pm = amp;
-    
+% 
+%     if n > 10000
+%         Pm = 0;
+%     else
+        Pm = amp;
+%     end
     if connectedToLip
         %% Collision
         barr = -H0;
@@ -452,11 +455,11 @@ for n = 1:lengthSound
 % 
             subplot(3,1,2)
             hold off;
-            plot(1:length(uv)-1, uv);
+            plot(1:length(uv)-1, uv(1:end-1));
 %             plot(1:length(uv), uv);
             hold on
             plot(1:M(n), vState(n, 1:M(n)), 'Marker', '.', 'MarkerSize', 10);
-            plot((2:length(wv)) + length(uv) + alf, wv(2:end));
+            plot((2:length(wv)) + length(uv)-1 + alf, wv(2:end));
             plot((M(n)+1:(M(n)+Mw(n))) + alfSave(n), vState(n, (maxM+1):(maxM+Mw(n))), 'Marker', 'o', 'MarkerSize', 2);
             if zoomPlot
                 xlim([M(n) - 5, (M(n)+5)])

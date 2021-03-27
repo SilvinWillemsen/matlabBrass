@@ -30,7 +30,8 @@ function [S, SHalf, SBar, addPointsAt] = setTube(N, NnonExtended, n, setToOnes)
     S = totRadii.^2 * pi;
     
     if setToOnes
-        S = ones(N+1, 1);
+        S = exp((-N-1:0)'/(0.5*N))/2;
+        addPointsAt = N/2;
     end
     
     % Calculate approximations to the geometry

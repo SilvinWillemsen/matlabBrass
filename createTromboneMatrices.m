@@ -24,11 +24,11 @@ Du(1, 1) = 2 * Du(1, 1);
 Dw = sparse(1:Mq+1, 1:Mq+1, ones(1, Mq+1) .* rho .* c .* lambda .* SHalf(Mp:end)'./SBar(Mp+1:end)', Mq+1, Mq+1) + ...
      sparse(1:Mq, 2:Mq+1, ones(1, Mq) .* -rho .* c .* lambda .* SHalf(Mp+1:end)'./SBar(Mp+1:end-1)', Mq+1, Mq+1);
 
-radMat = zeros(totSize, 1);
+radVec = zeros(totSize, 1);
 radP = sparse(1:totSize, 1:totSize, ones(1, totSize), totSize, totSize);
 if radiation
     radP(end) = (1 - rho * c * lambda * z3) / (1 + rho * c * lambda * z3);
-    radMat(end) = - 2 * rho * c * lambda * (v1 + z4 * p1) / (1 + rho * c * lambda * z3);
+    radVec(end) = - 2 * rho * c * lambda * (v1 + z4 * p1) / (1 + rho * c * lambda * z3);
     Dw(end, end) = (2 * rho * c * lambda * SHalf(end)/SBar(end)) / (1 + rho * c * lambda * z3);
     
 %     wpNext(end) = ((1 - rho * c * lambda * z3) * wp(end) - 2 * rho * c * lambda * (v1 + z4 * p1 - SHalf(end)/SBar(end) .* wvNext(end))) / (1 + rho * c * lambda * z3);
@@ -44,7 +44,7 @@ D(Mp+2:end, Mp+2:end) = Dw;
 
 % A1 = [eye(totSize), D; zeros(totSize), eye(totSize)];
 % B1 = [eye(totSize), zeros(totSize); B, eye(totSize)];
-Q = [radP + D * B,             D,                sparse(1:totSize, 1:totSize, radMat', totSize, totSize); 
-     B,                        eye(totSize),     zeros(totSize);
-     eye(totSize),             zeros(totSize),   zeros(totSize)];
+Q = [radP + D * B,    D,            radVec;
+     B,               eye(totSize), zeros(totSize, 1);
+     zeros(1, totSize*2+1)];
 

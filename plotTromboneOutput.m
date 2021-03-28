@@ -1,11 +1,13 @@
 clc;
 % clear all;
 close all
-loadFiles = true;
+if ~calledFromOtherFile
+    loadFiles = true;
+end
 if loadFiles
     clear all;
     onlyLoadFiles = true; % so no plotting when true
-    onlyLoadOutput = true;
+    onlyLoadOutput = false;
     mode = "Debug";
     loadTromboneFiles;
 end

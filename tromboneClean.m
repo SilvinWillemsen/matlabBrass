@@ -2,26 +2,27 @@
     Full trombone: lip, dynamic tube with proper geometry, radiation 
 %}
 
-clear all;
+% clear all;
 close all;
 
-% loadFiles = true;
-% plotTromboneOutput;
+loadFiles = true;
+calledFromOtherFile = true;
+plotTromboneOutput;
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs * 2;       % Duration (s)
+lengthSound = fs;       % Duration (s)
 
 % drawing variables
-drawThings = false;
+drawThings = true;
 zoomPlot = false;
-drawsetting = 0;
+plotVScaledByS = false;
+drawsetting = 1;
 
 shouldDispCorr = true;
-correctV = false;
-correctVirtual = false;
+correctV = 0; % 0: disabled, 1: two half forces, 2: just ends and inverted beta, 3: interpolated virtuals and ends
 
-drawSpeed = 100;
-drawStart = 1;
+drawSpeed = 10;
+drawStart = 100;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -35,6 +36,8 @@ connectedToLip = true;
 LnonExtended = 2.593;
 Lextended = 3.653;
 
+Ndiffmax = 50;
+
 %% viscothermal effects
 T = 26.85;
 [c, rho, eta, nu, gamma] = calcThermoDynConstants (T);
@@ -43,11 +46,11 @@ T = 26.85;
 h = c * k;              % Grid spacing (m)
 NnonExtended = LnonExtended / h;
 Nextended = Lextended / h;
-
+% 
+% Nstart = NnonExtended;
+% Nend = Nextended;
 Nstart = NnonExtended;
-Nend = NnonExtended;
-% Nstart = Nextended;
-% Nend = NnonExtended;
+Nend = Nextended;
 
 % Nstart = 337;
 % Nend = 338;
@@ -57,7 +60,7 @@ if fixedNonInterpolatedL
 else
     Ninit = Nstart;
 end
-lambdaFact = 0.999;
+lambdaFact = 1;
 lambda = lambdaFact * c * k / h      % courant number
 
 LInit = Nstart*h;
@@ -79,7 +82,7 @@ setToOnes = false;
 % Quick note: N is the number of spaces between the points so the number of points is N+1
 
 %% Lip variables
-f0 = linspace(275, 275, lengthSound); % should be different values, probably modal analysis will provide an answer here
+f0 = linspace(300, 300, lengthSound); % should be different values, probably modal analysis will provide an answer here
 % f0 = 150;
 % 385.5 -> 2.658 m
 % 300 -> 3 m
@@ -138,7 +141,8 @@ if connectedWithP
     
     wvNext = zeros(floor(N-addPointsAt)+1, 1); 
     wv = zeros(floor(N-addPointsAt)+1, 1);
-    wvPrev = zeros(floor(N-addPointsAt)+1, 1);
+%     wv = wv+0.01./SHalf(end-length(wv)+1:end);
+    wvPrev = wv;
 
 else
     uvNext = zeros(ceil(addPointsAt) + 1, 1); 
@@ -263,10 +267,10 @@ for n = 1:lengthSound
 
     end
     if shouldDispCorr
-        displacementCorrection;
+        displacementCorrectionV;
     end
-% 
-%     if n > 10000
+
+%     if n > 100
 %         Pm = 0;
 %     else
         Pm = amp;
@@ -329,8 +333,8 @@ for n = 1:lengthSound
         p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
     end
     
-    if shouldDispCorr && connectedWithP
-        displacementCorrection;
+    if shouldDispCorr
+        displacementCorrectionP;
     end
     
     %% Set output from output position
@@ -413,12 +417,21 @@ for n = 1:lengthSound
                 %% Plot velocities
                 subplot(2,1,2)
                 if connectedWithP
-                    hold off;
-                    plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
-                    hold on;
-                    plot(locsRight - 0.5, wvNext, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
-                    plot(locsLeft(end) + 0.5, uvNext(end), 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
-                    plot(locsRight(1) - 0.5, wvNext(1), 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                    if plotVScaledByS
+                        hold off;
+                        plot(locsLeft + 0.5, uvNext.*SHalf(1:length(uvNext)), 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                        hold on;
+                        plot(locsRight - 0.5, wvNext.*SHalf(end-length(wvNext)+1:end), 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                        plot(locsLeft(end) + 0.5, uvNext(end)*SHalf(length(uv)), 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                        plot(locsRight(1) - 0.5, wvNext(1)*SHalf(length(uv)-1), 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                    else
+                        hold off;
+                        plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
+                        hold on;
+                        plot(locsRight - 0.5, wvNext, 'Marker', '.', 'MarkerSize', 10,  'Color', 'b');
+                        plot(locsLeft(end) + 0.5, uvNext(end), 'Marker', 'o', 'MarkerSize', 10, 'Color', 'r');
+                        plot(locsRight(1) - 0.5, wvNext(1), 'Marker', 'o', 'MarkerSize', 10,  'Color', 'b');
+                    end
                 else
                     hold off;
                     plot(locsLeft + 0.5, uvNext, 'Marker', '.', 'MarkerSize', 10, 'Color', 'r');
@@ -435,13 +448,13 @@ for n = 1:lengthSound
                 drawnow;
             end
         elseif drawsetting == 1
-            subplot(3,1,1)
+            subplot(4,1,1)
             hold off;
-            plot(1:length(up), up);
+            plot(1:length(upNext), upNext);
 %             plot(1:length(uv), uv);
             hold on
             plot(1:M(n)+1, pState(n, 1:M(n)+1), 'Marker', '.', 'MarkerSize', 10);
-            plot((1:length(wp)) + length(up) - 1 + alf, wp);
+            plot((1:length(wpNext)) + length(upNext) - 1 + alf, wpNext);
             plot((M(n)+1:(M(n)+Mw(n) + 1)) + alfSave(n), pState(n, (maxM+2):(maxM+Mw(n)+2)), 'Marker', 'o', 'MarkerSize', 2);
             if zoomPlot
                 xlim([M(n) - 5, (M(n)+5)])
@@ -453,23 +466,26 @@ for n = 1:lengthSound
 %             plot((1:length(wp)) + length(up) - 1, pState(n, (1:length(wp)) + length(up))');
 %             plot((1:length(wv)) + length(uv) - 1 + alf, wv);
 % 
-            subplot(3,1,2)
+            subplot(4,1,2)
             hold off;
-            plot(1:length(uv)-1, uv(1:end-1));
+            plot(1:length(uvNext)-1, uvNext(1:end-1));
 %             plot(1:length(uv), uv);
             hold on
             plot(1:M(n), vState(n, 1:M(n)), 'Marker', '.', 'MarkerSize', 10);
-            plot((2:length(wv)) + length(uv)-1 + alf, wv(2:end));
+            plot((2:length(wvNext)) + length(uvNext)-2 + alf, wvNext(2:end));
             plot((M(n)+1:(M(n)+Mw(n))) + alfSave(n), vState(n, (maxM+1):(maxM+Mw(n))), 'Marker', 'o', 'MarkerSize', 2);
             if zoomPlot
                 xlim([M(n) - 5, (M(n)+5)])
             end
-            subplot(3,1,3)
-            plot([1:length(up), (1:length(wp)) + length(up) - 1 + alf], [up', wp'] - [pState(n, 1:M(n)+1), pState(n, (maxM+2):(maxM+Mw(n)+2)) ])
+            subplot(4,1,3)
+            plot([1:length(upNext), (1:length(wpNext)) + length(upNext) - 1 + alf], [upNext', wpNext'] - [pState(n, 1:M(n)+1), pState(n, (maxM+2):(maxM+Mw(n)+2)) ])
 %             hold off;
 %             plot(1:length(up), up, '-o');
 %             hold on;   
 %             plot((1:length(wp))+length(up)-1, wp, '-o');  
+            subplot(4,1,4)
+            plot([1:length(uvNext)-1, (2:length(wvNext)) + length(uvNext) - 2 + alf], [uvNext(1:end-1)', wvNext(2:end)'] - [vState(n, 1:M(n)), vState(n, (maxM+1):(maxM+Mw(n)))])
+
             pause(0.5);
             drawnow;
         end

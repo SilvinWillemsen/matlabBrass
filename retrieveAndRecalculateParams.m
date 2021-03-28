@@ -10,6 +10,7 @@ if changeL
     
     if (abs(L - Lend) < Linc)
         L = Lend;
+%         Lend = Nstart*h; % go back to the start
     end
     
 else

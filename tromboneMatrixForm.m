@@ -27,7 +27,7 @@ onlyAnalysis = true;
 LnonExtended = 2.593;
 Lextended = 3.653;
 
-Ndiffmax = 10;
+Ndiffmax = 5;
 
 %% viscothermal effects
 T = 26.85;
@@ -38,15 +38,17 @@ h = c * k;              % Grid spacing (m)
 NnonExtended = LnonExtended / h;
 Nextended = Lextended / h;
 
-Nstart = floor(NnonExtended);
-Nend = Nstart + 50;
+Nstart = NnonExtended;
+Nend = Nextended;
 % Nstart = 150;
 % Nend = 21;
-numLoops = Ndiffmax * abs(Nend - Nstart);
-
-
-fSave = zeros(lengthSound, max(Nstart, Nend));
-sigmaSave = zeros(lengthSound, max(Nstart, Nend));
+if onlyAnalysis
+    numLoops = Ndiffmax * abs(Nend - Nstart);
+    fSave = zeros(lengthSound, ceil(max(Nstart, Nend)));
+    sigmaSave = zeros(lengthSound, ceil(max(Nstart, Nend)));
+else
+    numLoops = lengthSound;
+end
 
 Ninit = Nstart;
 
@@ -97,8 +99,8 @@ vNext = [uvNext; wvNext];
 v = [uv; wv];
 vPrev = [uvPrev; wvPrev];
 
-pvpNext = [pNext; vNext; p];
-pvp = [p; v; pPrev];
+pvNext = [pNext; vNext];
+pv = [p; v];
 
 uvMphPrev = 0;
 wvmhPrev = 0;
@@ -117,7 +119,7 @@ if exciteU
     p(inputRange) = p(inputRange) + hann(width*2+1);
     pPrev = p;
     
-    pvp(inputRange) = pvp(inputRange) + hann(width*2+1);
+    pv(inputRange) = pv(inputRange) + hann(width*2+1);
 
     
 else
@@ -130,7 +132,7 @@ else
     p(inputRange+Mp+1) = p(inputRange+Mp+1) + hann(width*2+1);
     pPrev = p;
     
-    pvp(inputRange+1+Mp) = pvp(inputRange+1+Mp) + hann(width*2+1);
+    pv(inputRange+1+Mp) = pv(inputRange+1+Mp) + hann(width*2+1);
 
 end
 
@@ -167,12 +169,7 @@ statesSave = [];
 changeL = true;
 alternatePV = false;
 
-if onlyAnalysis
-    loopRange = 1:numLoops;
-else
-    loopRange = 1:lengthSound
-end
-for n = loopRange
+for n = 1:ceil(numLoops)
     
     retrieveAndRecalculateParams;
     addAndRemovePoints;
@@ -198,7 +195,6 @@ for n = loopRange
 
         vNext = v + B * p;
 
-
         %% Calculate pressure
         upNext(upRange) = up(upRange) - rho * c * lambda ./ SBar(upRange) .* (SHalf(upRange) .* uvNext(upRange) - SHalf(upRange-1) .* uvNext(upRange-1));
         upNext(1) = up(1) - rho * c * lambda / SBar(1) .* (2 * SHalf(1) * uvNext(1));
@@ -211,13 +207,12 @@ for n = loopRange
         v1Next = v1 + k / (2 * Lr) * (wpNext(end) + wp(end));
         p1Next = z1 / 2 * (wpNext(end) + wp(end)) + z2 * p1;
 
-        pNext = radP * p + D * (v + B * p) + radMat;    
+        pNext = radP * p + D * (v + B * p) + radVec;    
     %     pNextTest = [up; wp] + D * vNextTest;    
 
         %% One step
-        pvp(totSize*2+1:end) = ones(totSize,1);
-        pvpNext = Q * pvp;
-
+        pvNextTest = Q * [pv; 1];
+        pvNext = pvNextTest(1:end-1);
         if shouldDispCorr && connectedWithP
             displacementCorrection;
         end
@@ -241,20 +236,20 @@ for n = loopRange
             plot([uvNext; wvNext])
             hold on;
             plot(vNext);
-            plot(pvpNext(totSize+1:totSize*2));
+            plot(pvNext(totSize+1:end));
 
             subplot(412)
             hold off;
             plot([upNext; wpNext])
             hold on;
             plot(pNext)
-            plot(pvpNext(1:totSize));
+            plot(pvNext(1:totSize));
 
             subplot(413)
-            plot(vNext - pvpNext(totSize+1:totSize*2));
+            plot(vNext - pvNext(totSize+1:end));
 
             subplot(414)
-            plot(pNext - pvpNext(1:totSize));
+            plot(pNext - pvNext(1:totSize));
 
             if zoomPlot
                 for sp = 1:4
@@ -270,7 +265,7 @@ for n = loopRange
     
     if ~onlyAnalysis
         %% Update states
-        pvp = pvpNext;
+        pv = pvNext;
 
         vPrev = v;
         v = vNext;

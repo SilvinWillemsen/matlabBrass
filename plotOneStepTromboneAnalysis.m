@@ -2,10 +2,10 @@
 fSave(fSave==0) = nan;
 if (Nend-Nstart) < 0
     fSaveRange = 2:size(fSave, 1);
-    loopStartRange1 = 2:length(loopRange);
+    loopStartRange1 = 2:ceil(numLoops);
 else
     fSaveRange = 1:size(fSave,1);
-    loopStartRange1 = 1:length(loopRange);
+    loopStartRange1 = 1:ceil(numLoops);
 
 end
 hold on;
@@ -23,7 +23,7 @@ end
 set(h, {'color', 'Linewidth'}, [num2cell(colours, 2), num2cell(2 * ones(length(h), 1))])
 % title ("Modal Analysis $N = " + loopNStart + " \rightarrow" + loopNend + "$", 'interpreter', 'latex');
 xlabelsave = num2cell(Nstart:sign(Nend-Nstart):Nend);
-set(gca, 'Linewidth', 2, 'Fontsize', 16, 'XTick', loopRange(loopStartRange1), 'xticklabel', xlabelsave, 'TickLabelInterpreter', 'latex')
+set(gca, 'Linewidth', 2, 'Fontsize', 16, 'XTick', loopStartRange1, 'xticklabel', xlabelsave, 'TickLabelInterpreter', 'latex')
 xlabel("$N$", 'interpreter', 'latex')
 ylabel("Frequency (Hz)", 'interpreter', 'latex')
 ylim([0, fs / 2])

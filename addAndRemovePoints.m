@@ -83,17 +83,45 @@ if N > NPrev
         end
     else
         if mod(N,2) == 1
-            uvNext = [uvNext; customIp * [uvNext(end-1:end); wvNext(2:3)]];
-            uv = [uv; customIp * [uv(end-1:end); wv(2:3)]];
+            vNextDiff = wvNext(1) - uvNext(end);
+            vDiff = wv(1) - uv(end);
+            vPrevDiff = wvPrev(1) - uvPrev(end);
+
+            uvNext = [uvNext; customIp * [uvNext(end-1:end); wvNext(2:3)-vNextDiff]];
+            uv = [uv; customIp * [uv(end-1:end); wv(2:3)-vDiff]];
+            uvPrev = [uvPrev; customIp * [uvPrev(end-1:end); wvPrev(2:3)-vPrevDiff]];
+            
+%             hold off;
+%             plot([uvNext(end-1:end); wvNext(2:3)-vNextDiff])
+%             hold on;
+%             plot([uv(end-1:end); wv(2:3)-vDiff])
+%             plot([uvPrev(end-1:end); wvPrev(2:3)-vPrevDiff])
+%             title("added to u")
+%             drawnow;
+%             pause(0.5)
             
             upNext = [upNext; customIp * [upNext(end-1:end); wpNext(1:2)]];
             up = [up; customIp * [up(end-1:end); wp(1:2)]];
             upPrev = [upPrev; customIp * [upPrev(end-1:end); wpPrev(1:2)]];
-
+            
         else 
-            wvNext = [fliplr(customIp) * [uv(end-2:end-1); wv(1:2)]; wvNext];
-            wv = [fliplr(customIp) * [uv(end-2:end-1); wv(1:2)]; wv];
-                        
+            vNextDiff = wvNext(1) - uvNext(end);
+            vDiff = wv(1) - uv(end);
+            vPrevDiff = wvPrev(1) - uvPrev(end);
+            
+            wvNext = [fliplr(customIp) * [uvNext(end-2:end-1)+vNextDiff; wvNext(1:2)]; wvNext];
+            wv = [fliplr(customIp) * [uv(end-2:end-1)+vDiff; wv(1:2)]; wv];
+            wvPrev = [fliplr(customIp) * [uvPrev(end-2:end-1)+vPrevDiff; wvPrev(1:2)]; wvPrev];
+          
+%             hold off;
+%             plot([uvNext(end-2:end-1)+vNextDiff; wvNext(1:2)])
+%             hold on;
+%             plot([uv(end-2:end-1)+vDiff; wv(1:2)])
+%             plot([uvPrev(end-2:end-1)+vPrevDiff; wvPrev(1:2)])
+%             title("added to w")
+%             pause(0.5)
+%             drawnow;
+            
             wpNext = [fliplr(customIp) * [upNext(end-1:end); wpNext(1:2)]; wpNext];
             wp = [fliplr(customIp) * [up(end-1:end); wp(1:2)]; wp];
             wpPrev = [fliplr(customIp) * [upPrev(end-1:end); wpPrev(1:2)]; wpPrev];

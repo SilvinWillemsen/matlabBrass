@@ -44,8 +44,8 @@ Nend = Nextended;
 % Nend = 21;
 if onlyAnalysis
     numLoops = Ndiffmax * abs(Nend - Nstart);
-    fSave = zeros(lengthSound, ceil(max(Nstart, Nend)));
-    sigmaSave = zeros(lengthSound, ceil(max(Nstart, Nend)));
+    fSave = zeros(numLoops, ceil(max(Nstart, Nend)));
+    sigmaSave = zeros(numLoops, ceil(max(Nstart, Nend)));
 else
     numLoops = lengthSound;
 end

@@ -10,19 +10,20 @@ calledFromOtherFile = true;
 plotTromboneOutput;
 fs = 44100;             % Sample rate (Hz)
 k = 1/fs;               % Time step (s)
-lengthSound = fs;       % Duration (s)
+lengthSound = fs*0.5;       % Duration (s)
 
 % drawing variables
-drawThings = true;
-zoomPlot = false;
+drawThings = false;
+zoomPlot = true;
 plotVScaledByS = false;
 drawsetting = 1;
 
 shouldDispCorr = true;
 correctV = 0; % 0: disabled, 1: two half forces, 2: just ends and inverted beta, 3: interpolated virtuals and ends
+initwvWithOffset = false;
 
 drawSpeed = 10;
-drawStart = 100;
+drawStart = 4900;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
@@ -35,8 +36,11 @@ connectedToLip = true;
 
 LnonExtended = 2.593;
 Lextended = 3.653;
-
-Ndiffmax = 50;
+Ndiffmax = 20;
+delayBeforeChange = 5001;
+if delayBeforeChange > 0
+    changeL = false;
+end
 
 %% viscothermal effects
 T = 26.85;
@@ -49,8 +53,8 @@ Nextended = Lextended / h;
 % 
 % Nstart = NnonExtended;
 % Nend = Nextended;
-Nstart = NnonExtended;
-Nend = Nextended;
+Nstart = Nextended;
+Nend = NnonExtended;
 
 % Nstart = 337;
 % Nend = 338;
@@ -60,7 +64,7 @@ if fixedNonInterpolatedL
 else
     Ninit = Nstart;
 end
-lambdaFact = 1;
+lambdaFact = 0.9999;
 lambda = lambdaFact * c * k / h      % courant number
 
 LInit = Nstart*h;
@@ -141,7 +145,9 @@ if connectedWithP
     
     wvNext = zeros(floor(N-addPointsAt)+1, 1); 
     wv = zeros(floor(N-addPointsAt)+1, 1);
-%     wv = wv+0.01./SHalf(end-length(wv)+1:end);
+    if initwvWithOffset
+        wv = wv+1./SHalf(end-length(wv)+1:end);
+    end
     wvPrev = wv;
 
 else
@@ -204,8 +210,8 @@ end
 z3 = k/(2*Lr) + z1 / (2 * R2) + Cr * z1 / k;
 z4 = (z2 + 1) / (2 * R2) + (Cr * z2 - Cr) / k;
     
-p1 = 0;
-v1 = 0;
+p1 = wp(end);
+v1 = SHalf(end) / SBar(end) * wv(end);
 p1Prev = 0;
 v1Prev = 0;
 
@@ -214,7 +220,9 @@ flag = false;
 statesSave = [];
 
 for n = 1:lengthSound
-    
+    if n > delayBeforeChange
+        changeL = true;
+    end
     retrieveAndRecalculateParams;
     addAndRemovePoints;
     
@@ -274,6 +282,9 @@ for n = 1:lengthSound
 %         Pm = 0;
 %     else
         Pm = amp;
+%     end
+%     if wvNext(1) ~= 0
+%         disp("wait")
 %     end
     if connectedToLip
         %% Collision
@@ -338,7 +349,7 @@ for n = 1:lengthSound
     end
     
     %% Set output from output position
-    out(n) = wp(end-1);
+    out(n) = wp(end);
 
     %% Draw things
     if drawThings && mod (n, drawSpeed) == 0 && n > drawStart

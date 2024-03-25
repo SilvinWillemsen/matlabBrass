@@ -6,7 +6,7 @@ clear all;
 close all;
 
 % drawing variables
-drawThings = true;
+drawThings = false;
 drawSpeed = 1;
 centered = true;
 

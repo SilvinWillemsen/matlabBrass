@@ -13,31 +13,31 @@ k = 1/fs;               % Time step (s)
 lengthSound = fs*0.5;       % Duration (s)
 
 % drawing variables
-drawThings = false;
-zoomPlot = true;
+drawThings = true;
+zoomPlot = false;
 plotVScaledByS = false;
-drawsetting = 1;
+drawsetting = 0;
 
 shouldDispCorr = true;
 correctV = 0; % 0: disabled, 1: two half forces, 2: just ends and inverted beta, 3: interpolated virtuals and ends
 initwvWithOffset = false;
 
-drawSpeed = 10;
-drawStart = 4900;
+drawSpeed = 1000;
+drawStart = 0;
 drawSpeedInit = drawSpeed;
 
 fixedNonInterpolatedL = false;
 
 changeL = ~fixedNonInterpolatedL;
-radiation = true;
+radiation = false;
 alternatePV = false;
 
-connectedToLip = true;
+connectedToLip = false;
 
 LnonExtended = 2.593;
 Lextended = 3.653;
-Ndiffmax = 20;
-delayBeforeChange = 5001;
+Ndiffmax = 50;
+delayBeforeChange = 0;
 if delayBeforeChange > 0
     changeL = false;
 end
@@ -64,10 +64,10 @@ if fixedNonInterpolatedL
 else
     Ninit = Nstart;
 end
-lambdaFact = 0.9999;
+lambdaFact = 0.999;
 lambda = lambdaFact * c * k / h      % courant number
 
-LInit = Nstart*h;
+LInit = Nstart * h;
 Lend = Nend * h;
 
 L = LInit;
@@ -80,7 +80,7 @@ Kcol = 10000;
 alfCol = 3; 
 
 %% Set cross-sectional geometry
-setToOnes = false;
+setToOnes = true;
 [S, SHalf, SBar, addPointsAt] = setTube (N+1, NnonExtended, 0, setToOnes);
 
 % Quick note: N is the number of spaces between the points so the number of points is N+1

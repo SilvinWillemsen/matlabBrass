@@ -1,14 +1,14 @@
 clc;
 % clear all;
 close all
-if ~calledFromOtherFile
+% if ~calledFromOtherFile
     loadFiles = true;
-end
+% end
 if loadFiles
     clear all;
     onlyLoadFiles = true; % so no plotting when true
-    onlyLoadOutput = false;
-    mode = "Debug";
+    onlyLoadOutput = true;
+    mode = "Release";
     loadTromboneFiles;
 end
 lengthSound  = length(output);

@@ -22,12 +22,12 @@ correctVirtual = false;
 
 radiation = true;
 
-onlyAnalysis = true;
+onlyAnalysis = false;
 
 LnonExtended = 2.593;
 Lextended = 3.653;
 
-Ndiffmax = 5;
+Ndiffmax = 20;
 
 %% viscothermal effects
 T = 26.85;
